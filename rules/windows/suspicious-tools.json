@@ -1,0 +1,10 @@
+{
+  "id": "windows-network-analysis-tool",
+  "name": "Network analysis tool started",
+  "description": "A process commonly used for network scanning or packet capture started. Verify that this activity is authorized.",
+  "severity": "medium",
+  "event_type": "process.started",
+  "platforms": ["windows"],
+  "field": "name",
+  "equals": ["nmap.exe", "masscan.exe", "ncat.exe", "wireshark.exe", "tshark.exe", "tcpdump.exe"]
+}

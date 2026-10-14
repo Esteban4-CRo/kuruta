@@ -1,0 +1,10 @@
+{
+  "id": "linux-network-analysis-tool",
+  "name": "Network analysis tool started",
+  "description": "A process commonly used for network scanning or packet capture started. Verify that this activity is authorized.",
+  "severity": "medium",
+  "event_type": "process.started",
+  "platforms": ["linux"],
+  "field": "name",
+  "equals": ["nmap", "masscan", "ncat", "nc", "netcat", "wireshark", "tshark", "tcpdump", "socat"]
+}

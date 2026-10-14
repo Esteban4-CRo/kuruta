@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kuruta.local/schemas/event-v1.json",
+  "title": "Kuruta event envelope",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "event_id",
+    "timestamp",
+    "host",
+    "source",
+    "event_type",
+    "severity",
+    "data"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "event_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "timestamp": { "type": "string", "format": "date-time" },
+    "host": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "hostname", "platform"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "hostname": { "type": "string", "minLength": 1, "maxLength": 255 },
+        "platform": { "enum": ["windows", "linux"] }
+      }
+    },
+    "source": { "enum": ["host", "network"] },
+    "event_type": { "type": "string", "pattern": "^[a-z][a-z0-9_.-]{1,63}$" },
+    "severity": { "enum": ["info", "low", "medium", "high", "critical"] },
+    "data": {
+      "type": "object",
+      "maxProperties": 32,
+      "additionalProperties": {
+        "type": ["string", "integer", "number", "boolean", "null"]
+      }
+    }
+  }
+}
