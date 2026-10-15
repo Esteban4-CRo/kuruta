@@ -1,0 +1,3 @@
+# Normalize git author identities to a single canonical identity.
+# This merges "EstebanCRO" (old display name) into "Esteban4-CRo".
+Esteban4-CRo <juancampinoc@gmail.com> EstebanCRO <juancampinoc@gmail.com>

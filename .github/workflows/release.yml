@@ -5,13 +5,39 @@ on:
     tags:
       - "v*"
   workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag de versión a publicar (ej: v0.3.0)"
+        required: true
+        default: "v0.3.0"
 
 permissions:
   contents: write
 
 jobs:
+  # When triggered manually, create + push the tag first
+  create-tag:
+    name: Create tag (manual dispatch only)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Configure git identity
+        run: |
+          git config user.name  "Esteban4-CRo"
+          git config user.email "juancampinoc@gmail.com"
+      - name: Create and push tag
+        run: |
+          TAG="${{ github.event.inputs.tag }}"
+          git tag "$TAG" || echo "Tag already exists, continuing"
+          git push origin "$TAG" || echo "Tag already pushed"
+
   build:
     name: Build ${{ matrix.platform }} executables
+    needs: [create-tag]
+    if: always() && (needs.create-tag.result == 'success' || needs.create-tag.result == 'skipped')
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -19,18 +45,17 @@ jobs:
         include:
           - os: windows-latest
             platform: windows
-            rust-target: x86_64-pc-windows-msvc
           - os: ubuntu-22.04
             platform: linux
-            rust-target: x86_64-unknown-linux-gnu
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Fetch all tags so the build picks up the new one
+          fetch-depth: 0
+          ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || github.ref }}
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: ${{ matrix.rust-target }}
       - name: Install packet capture libraries
         if: matrix.platform == 'linux'
         run: sudo apt-get update && sudo apt-get install -y libpcap-dev
@@ -45,7 +70,6 @@ jobs:
           name: kuruta-${{ matrix.platform }}-x64
           path: |
             dist/release/kuruta-${{ matrix.platform }}-x64*
-            dist/release/kuruta-agent-${{ matrix.platform }}-x64*
             dist/release/Kuruta-Setup-${{ matrix.platform }}-x64*
           if-no-files-found: warn
           retention-days: 7
@@ -56,6 +80,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/download-artifact@v4
         with:
           pattern: kuruta-*-x64
@@ -63,10 +89,19 @@ jobs:
           merge-multiple: true
       - name: Include project logo and license
         run: |
-          cp assets/kuruta-logo.png release-files/kuruta-logo.png
-          cp LICENSE release-files/LICENSE-MIT.txt
+          cp assets/kuruta-logo.png release-files/kuruta-logo.png || true
+          cp LICENSE release-files/LICENSE-MIT.txt || true
+      - name: Determine tag name
+        id: tagname
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "TAG=${{ github.event.inputs.tag }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "TAG=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+          fi
       - uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ steps.tagname.outputs.TAG }}
           generate_release_notes: true
           files: |
             release-files/*
