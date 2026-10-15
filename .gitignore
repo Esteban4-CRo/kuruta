@@ -12,6 +12,11 @@ data/
 # Rust build output
 target/
 
+# Native release build output
+/dist/release/
+/dist/pyinstaller-work/
+/dist/spec/kuruta-server-*-x64.spec
+
 # Editors and operating systems
 .vscode/
 .DS_Store

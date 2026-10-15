@@ -119,15 +119,11 @@ actual antes de usar números de línea, ya que el archivo evoluciona.
   incluyendo `url` para analizar y restringir destinos a loopback.
 - `backend/run_server.py`: arranca Uvicorn en `127.0.0.1:8765` tanto desde Python
   como desde el ejecutable empaquetado.
-- `scripts/build_release.py`: ejecuta PyInstaller, compila Rust en el runner
-  nativo y crea el ZIP con binarios, logo, licencia y guía de inicio.
-- `packaging/start-kuruta.ps1` y `packaging/stop-kuruta.ps1`: inician y detienen
-  backend y agente en Windows; guardan la base/logs bajo `%LOCALAPPDATA%\Kuruta`.
-- `packaging/start-kuruta.sh`: inicia ambos procesos en Linux y los limpia al
-  recibir Ctrl+C; los datos se guardan bajo `$XDG_DATA_HOME/kuruta` o
-  `~/.local/share/kuruta`.
-- `.github/workflows/release.yml`: ante una etiqueta `v*`, compila paquetes
-  nativos Windows/Linux y los publica en GitHub Releases.
+- `scripts/build_release.py`: ejecuta PyInstaller y Cargo en el runner nativo,
+  y genera ejecutables independientes para servidor y agente.
+- `.github/workflows/release.yml`: ante una etiqueta `v*`, compila ejecutables
+  nativos Windows/Linux y publica los cuatro binarios directamente como assets
+  del GitHub Release, sin archivarlos en ZIP.
   `chrono` genera timestamps, `reqwest` entrega HTTP con TLS Rustls disponible,
   `serde`/`serde_json` producen el evento y `sysinfo` enumera procesos.
 - `schemas/event-v1.json`: declara las mismas propiedades del sobre y evita

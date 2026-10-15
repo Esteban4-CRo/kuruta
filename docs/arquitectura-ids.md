@@ -34,9 +34,10 @@ TLS entre equipos ni instalación de servicios nativos.** El backend escucha en
 `127.0.0.1` por defecto; no cambiar ese valor para exponerlo a la LAN sin
 implementar primero autenticación por agente, TLS, autorización y pruebas.
 
-Los paquetes descargables son ZIP x64 nativos que incluyen el servidor generado
-por PyInstaller, agente Rust, reglas y scripts de inicio. La CI compila Windows
-y Linux en runners nativos al publicar una etiqueta `v*`.
+Las descargas son cuatro assets ejecutables x64 independientes: servidor y
+agente para Windows, y servidor y agente para Linux. El servidor se genera con
+PyInstaller e incluye las reglas; la CI compila cada sistema en runners nativos
+y adjunta directamente los binarios al publicar una etiqueta `v*`.
 
 El agente no ve todos los dispositivos de la red doméstica. Para inspeccionar
 tráfico de varios dispositivos se necesita que un sensor reciba los paquetes
@@ -67,9 +68,8 @@ Windows/Linux
 | --- | --- |
 | `agents/kuruta-agent/src/main.rs` | Implementado: sondeo de procesos, cola en memoria, reintento de envío HTTP y creación de eventos. |
 | `agents/kuruta-agent/Cargo.toml` | Dependencias y configuración del binario Rust. |
-| `scripts/build_release.py` | Construye el servidor con PyInstaller y ensambla el ZIP de cada SO. |
-| `packaging/` | Scripts de inicio y parada y guía incluida en las descargas. |
-| `.github/workflows/release.yml` | Compila y publica ZIP para Windows y Linux al crear etiquetas `v*`. |
+| `scripts/build_release.py` | Construye el ejecutable del backend con PyInstaller y compila el agente Rust nativo. |
+| `.github/workflows/release.yml` | Compila y publica ejecutables Windows/Linux al crear etiquetas `v*`. |
 | `LICENSE` | Licencia MIT del proyecto. |
 | `agents/windows/README.md` | Alcance y compilación del agente en Windows; no instala servicios aún. |
 | `agents/linux/README.md` | Alcance y compilación del agente en Linux; no instala servicios aún. |

@@ -1,6 +1,17 @@
 # Kuruta IDS
 
-![Kuruta logo](assets/kuruta-logo.png)
+<table>
+  <tr>
+    <td width="170" align="center">
+      <img src="assets/kuruta-logo.png" width="145" alt="Logo oficial de Kuruta">
+    </td>
+    <td>
+      <strong>IDS doméstico, local y multiplataforma.</strong><br>
+      Kuruta combina un agente Rust para Windows y Linux con un backend Python
+      para registrar eventos del host y generar alertas revisables.
+    </td>
+  </tr>
+</table>
 
 
 > **Estado: MVP en desarrollo.** Esta primera versión observa inicios de procesos en el equipo donde se ejecuta el agente. No inspecciona automáticamente todo el tráfico de la red doméstica ni sustituye a un antivirus, firewall o solución profesional de monitorización.
@@ -31,7 +42,10 @@ Windows/Linux
        +--------- eventos y alertas <-----+
 ```
 
-Para recibir eventos de otro equipo hay que desplegar el backend en una dirección accesible desde la LAN y configurar el agente. **No expongas el servidor directamente a Internet.** Antes de aceptar conexiones de la LAN se debe añadir autenticación por agente y HTTPS; el servidor de este MVP escucha solo en `127.0.0.1` de forma predeterminada.
+En esta versión, el agente solo se comunica con un servidor local en el mismo
+equipo. El servidor escucha en `127.0.0.1`; todavía no admite agentes remotos.
+No lo expongas a la LAN o a Internet: antes hay que implementar autenticación
+por agente, HTTPS y autorización.
 
 El agente observa procesos del equipo donde corre. La captura de paquetes requiere un sensor separado y visibilidad real del tráfico (por ejemplo, un puerto espejo/SPAN de un switch administrable, un TAP o un gateway configurado para ello). El modo promiscuo de una tarjeta Wi-Fi normal no muestra automáticamente las comunicaciones unicast de otros dispositivos.
 
@@ -43,20 +57,48 @@ El agente observa procesos del equipo donde corre. La captura de paquetes requie
 
 ## Descargas para Windows y Linux
 
-En GitHub abre **Releases** y descarga el paquete de tu sistema:
+En GitHub abre **Releases** y descarga los dos ejecutables de tu sistema:
 
-- Windows x64: `kuruta-windows-x64.zip`
-- Linux x64: `kuruta-linux-x64.zip`
+- Windows x64: `kuruta-server-windows-x64.exe` y `kuruta-agent-windows-x64.exe`
+- Linux x64: `kuruta-server-linux-x64` y `kuruta-agent-linux-x64`
 
-Extrae el ZIP completo y sigue `README-FIRST.txt` incluido. En Windows ejecuta
-`start-kuruta.ps1` desde PowerShell; en Linux ejecuta `./start-kuruta.sh` desde
-una terminal. Después abre `http://127.0.0.1:8765/docs`. No necesitas instalar
-Python o Rust para ejecutar los ZIP.
+No necesitas instalar Python ni Rust para ejecutar los binarios. Mantén ambos
+archivos descargados en una carpeta y abre dos terminales en esa carpeta.
 
-GitHub Actions construye los paquetes nativos cuando se publica una etiqueta
-`v*`. Windows no ejecuta el binario Linux ni Linux ejecuta el binario Windows.
-Los paquetes están dirigidos a x64; para compilar localmente necesitas Python,
-Rust y las dependencias de los manifiestos del proyecto.
+Windows, primera terminal:
+
+```powershell
+.\kuruta-server-windows-x64.exe
+```
+
+Segunda terminal:
+
+```powershell
+.\kuruta-agent-windows-x64.exe
+```
+
+Linux, primera terminal:
+
+```bash
+chmod +x kuruta-server-linux-x64 kuruta-agent-linux-x64
+./kuruta-server-linux-x64
+```
+
+Segunda terminal:
+
+```bash
+./kuruta-agent-linux-x64
+```
+
+Abre `http://127.0.0.1:8765/docs` para consultar eventos y alertas. Cierra cada
+proceso con Ctrl+C en su terminal. Los datos se guardan en
+`%LOCALAPPDATA%\Kuruta\kuruta.db` en Windows y
+`$XDG_DATA_HOME/kuruta/kuruta.db` o `~/.local/share/kuruta/kuruta.db` en Linux.
+
+GitHub Actions construye los paquetes nativos al publicar una etiqueta `v*` y
+adjunta cuatro ejecutables directamente al release, sin ZIP. Windows no ejecuta
+el binario Linux ni Linux el binario Windows. Las descargas son para x64; para
+compilar localmente necesitas Python, Rust y las dependencias del proyecto.
 
 ## Puesta en marcha en Windows y Linux
 
@@ -82,9 +124,11 @@ python -m pip install -e '.[dev]'
 python -m uvicorn backend.api.app:app --host 127.0.0.1 --port 8765
 ```
 
-La base de datos se crea en `data/kuruta.db`. Para cambiarla, define
-`KURUTA_DB_PATH` con una ruta absoluta antes de iniciar el servidor. Para cambiar
-el directorio de reglas, define `KURUTA_RULES_DIR`.
+La base de datos se guarda en `%LOCALAPPDATA%\Kuruta\kuruta.db` en Windows y
+`$XDG_DATA_HOME/kuruta/kuruta.db` o `~/.local/share/kuruta/kuruta.db` en Linux.
+Para elegir otra ubicación, define `KURUTA_DB_PATH` con una ruta absoluta antes
+de iniciar el servidor. `KURUTA_RULES_DIR` permite seleccionar otro directorio
+de reglas.
 
 ### 2. Compilar e iniciar el agente
 
@@ -181,4 +225,5 @@ assets/                  Recursos oficiales de Kuruta
 
 Kuruta se distribuye bajo la licencia [MIT](LICENSE). Para crear una versión
 descargable, publica una etiqueta, por ejemplo `v0.1.0`; GitHub Actions creará
-los ZIP de Windows y Linux y los adjuntará al GitHub Release.
+los ejecutables nativos del servidor y del agente para Windows y Linux, y los
+adjuntará directamente al GitHub Release.
