@@ -13,9 +13,7 @@ data/
 target/
 
 # Native release build output
-/dist/release/
-/dist/pyinstaller-work/
-/dist/spec/kuruta-server-*-x64.spec
+dist/
 
 # Editors and operating systems
 .vscode/

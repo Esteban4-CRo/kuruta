@@ -47,10 +47,14 @@ if (-not (Test-Path $AssetsDir)) {
     New-Item -ItemType Directory -Path $AssetsDir -Force | Out-Null
 }
 
+$DestExe = Join-Path $InstallDir "kuruta-windows-x64.exe"
+$DestIcon = Join-Path $AssetsDir "kuruta-logo.ico"
+$DestLogo = Join-Path $AssetsDir "kuruta-logo.png"
+
 # Copiar archivos
-Copy-Item $SourceExe (Join-Path $InstallDir "kuruta-windows-x64.exe") -Force
-Copy-Item $SourceIcon (Join-Path $AssetsDir "kuruta-logo.ico") -Force
-Copy-Item $SourceLogo (Join-Path $AssetsDir "kuruta-logo.png") -Force
+Copy-Item $SourceExe $DestExe -Force
+Copy-Item $SourceIcon $DestIcon -Force
+Copy-Item $SourceLogo $DestLogo -Force
 
 # Crear acceso directo en el menú de inicio
 if (-not (Test-Path $StartMenuDir)) {
@@ -60,21 +64,21 @@ if (-not (Test-Path $StartMenuDir)) {
 $WshShell = New-Object -ComObject WScript.Shell
 
 $Shortcut = $WshShell.CreateShortcut($StartShortcut)
-$Shortcut.TargetPath = Join-Path $InstallDir "kuruta-windows-x64.exe"
+$Shortcut.TargetPath = $DestExe
 $Shortcut.WorkingDirectory = $InstallDir
-$Shortcut.IconLocation = "$((Join-Path $AssetsDir 'kuruta-logo.ico')),0"
+$Shortcut.IconLocation = "$DestIcon,0"
 $Shortcut.Description = "Kuruta IDS - Sniffer y Analizador de Red Local"
 $Shortcut.Save()
 
 # Crear acceso directo en el Escritorio
 $Desk = $WshShell.CreateShortcut($DesktopShortcut)
-$Desk.TargetPath = Join-Path $InstallDir "kuruta-windows-x64.exe"
+$Desk.TargetPath = $DestExe
 $Desk.WorkingDirectory = $InstallDir
-$Desk.IconLocation = "$((Join-Path $AssetsDir 'kuruta-logo.ico')),0"
+$Desk.IconLocation = "$DestIcon,0"
 $Desk.Description = "Kuruta IDS - Sniffer y Analizador de Red Local"
 $Desk.Save()
 
-Write-Host "✓ Kuruta IDS instalado exitosamente en: $InstallDir" -ForegroundColor Green
-Write-Host "✓ Acceso directo creado en el Escritorio con icono oficial." -ForegroundColor Green
-Write-Host "✓ Acceso directo añadido al Menú Inicio." -ForegroundColor Green
+Write-Host "Kuruta IDS instalado exitosamente en: $InstallDir" -ForegroundColor Green
+Write-Host "Acceso directo creado en el Escritorio con icono oficial." -ForegroundColor Green
+Write-Host "Acceso directo anadido al Menu Inicio." -ForegroundColor Green
 Write-Host "Nota: Recuerda tener instalado Npcap (https://npcap.com/) para capturar tramas." -ForegroundColor Yellow

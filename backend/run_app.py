@@ -10,6 +10,13 @@ import webbrowser
 
 import uvicorn
 
+import os
+
+if sys.stdout is None:
+    sys.stdout = open(os.devnull, "w")
+if sys.stderr is None:
+    sys.stderr = open(os.devnull, "w")
+
 from backend.api.app import app, default_data_directory
 
 HOST = "127.0.0.1"
@@ -31,7 +38,7 @@ def configure_logging() -> None:
         logging.getLogger().addHandler(console)
 
 
-def wait_until_up(timeout: float = 8.0) -> None:
+def wait_until_up(timeout: float = 30.0) -> None:
     """Poll the local health endpoint until the service accepts connections."""
     import urllib.request
 
@@ -39,16 +46,21 @@ def wait_until_up(timeout: float = 8.0) -> None:
     url = f"http://{HOST}:{PORT}/health"
     while time.time() < deadline:
         try:
-            with urllib.request.urlopen(url, timeout=0.4) as response:
+            with urllib.request.urlopen(url, timeout=0.5) as response:
                 if response.status == 200:
                     return
         except OSError:
-            time.sleep(0.1)
+            time.sleep(0.15)
     raise RuntimeError(f"Kuruta did not start on {url}")
 
 
 def run_server() -> None:
-    uvicorn.run(app, host=HOST, port=PORT, log_level="info")
+    try:
+        config = uvicorn.Config(app, host=HOST, port=PORT, log_level="info", log_config=None)
+        server = uvicorn.Server(config)
+        server.run()
+    except Exception as error:
+        logging.exception("Kuruta HTTP server encountered an error: %s", error)
 
 
 def open_window(url: str) -> bool:
@@ -93,6 +105,8 @@ def main() -> None:
 
 
 if __name__ == "__main__":
+    import multiprocessing
+    multiprocessing.freeze_support()
     try:
         main()
     except Exception as error:
