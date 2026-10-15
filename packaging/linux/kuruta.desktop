@@ -1,0 +1,12 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Kuruta IDS
+GenericName=Packet Sniffer & Local IDS
+Comment=Local IDS and packet sniffer with black-and-white console
+Exec=kuruta-linux-x64
+Icon=kuruta
+Terminal=false
+Categories=Network;Security;Monitor;
+Keywords=sniffer;wireshark;ids;packets;capture;security;
+StartupWMClass=Kuruta

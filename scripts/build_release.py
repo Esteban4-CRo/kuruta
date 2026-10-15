@@ -137,6 +137,45 @@ def build_release_assets(platform_name: str, build_agent: bool = True) -> list[P
             agent_asset.chmod(0o755)
         assets.append(agent_asset)
 
+    # Package distribution installers
+    if is_windows:
+        iscc = shutil.which("iscc") or r"C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+        iss_path = ROOT / "packaging" / "windows" / "kuruta_setup.iss"
+        if Path(iscc).is_file() and iss_path.is_file():
+            print("Compiling Windows Inno Setup installer...")
+            run([str(iscc), str(iss_path)])
+            installer_exe = DIST / "Kuruta-Setup-windows-x64.exe"
+            if installer_exe.is_file():
+                assets.append(installer_exe)
+    else:
+        # Build universal Linux tar.gz bundle with install.sh, desktop file, icon and binary
+        import tarfile
+        tar_asset = DIST / "kuruta-linux-x64.tar.gz"
+        staging = ROOT / "dist" / "kuruta-bundle"
+        if staging.exists():
+            shutil.rmtree(staging)
+        staging.mkdir(parents=True)
+        shutil.copy2(app_asset, staging / "kuruta-linux-x64")
+        shutil.copy2(ROOT / "packaging" / "linux" / "install.sh", staging / "install.sh")
+        shutil.copy2(ROOT / "packaging" / "linux" / "kuruta.desktop", staging / "kuruta.desktop")
+        shutil.copy2(ROOT / "assets" / "kuruta-logo.png", staging / "kuruta-logo.png")
+        shutil.copy2(ROOT / "README.md", staging / "README.md")
+        (staging / "install.sh").chmod(0o755)
+        (staging / "kuruta-linux-x64").chmod(0o755)
+        
+        with tarfile.open(tar_asset, "w:gz") as tar:
+            tar.add(staging, arcname="kuruta-linux-x64")
+        assets.append(tar_asset)
+
+        # Build .deb package if dpkg-deb is available
+        deb_script = ROOT / "packaging" / "linux" / "build_deb.sh"
+        if shutil.which("dpkg-deb") and deb_script.is_file():
+            print("Building Debian/Ubuntu .deb package...")
+            run(["bash", str(deb_script)])
+            deb_pkg = DIST / "kuruta-linux-x64.deb"
+            if deb_pkg.is_file():
+                assets.append(deb_pkg)
+
     return assets
 
 

@@ -46,7 +46,8 @@ jobs:
           path: |
             dist/release/kuruta-${{ matrix.platform }}-x64*
             dist/release/kuruta-agent-${{ matrix.platform }}-x64*
-          if-no-files-found: error
+            dist/release/Kuruta-Setup-${{ matrix.platform }}-x64*
+          if-no-files-found: warn
           retention-days: 7
 
   publish:
@@ -68,5 +69,4 @@ jobs:
         with:
           generate_release_notes: true
           files: |
-            release-files/kuruta-*
-            release-files/LICENSE-MIT.txt
+            release-files/*

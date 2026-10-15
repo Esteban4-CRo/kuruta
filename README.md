@@ -30,39 +30,37 @@
 - Agente Rust opcional para inicios de procesos en el mismo equipo.
 - Almacenamiento local SQLite; no se envían eventos a un servicio de terceros.
 
-## Descarga (Windows y Linux)
+## Descarga e Instalación (Windows y Linux)
 
-En GitHub abre **Releases** y baja el ejecutable de tu sistema. Se usa como
-cualquier otra aplicación: no hace falta instalar Python ni Rust.
+En GitHub abre **[Releases](https://github.com/Esteban4-CRo/kuruta/releases)** y descarga el paquete correspondiente a tu sistema. Al igual que aplicaciones como Obsidian o Wireshark, dispones de instaladores completos con icono oficial, accesos directos y versiones portables:
 
-- Windows x64: `kuruta-windows-x64.exe` (doble clic) y, si quieres el sensor de
-  procesos, `kuruta-agent-windows-x64.exe`
-- Linux x64: `kuruta-linux-x64` y `kuruta-agent-linux-x64`
+### Windows x64
+- **Instalador recomendado**: `Kuruta-Setup-windows-x64.exe` (Doble clic, asistente de instalación, crea accesos directos en Escritorio y Menú Inicio con el icono oficial y desinstalador).
+- **Portable**: `kuruta-windows-x64.exe` (Ejecutable directo sin instalación).
+- **Requisito para capturar tráfico**: Instala [Npcap](https://npcap.com/#download) (el mismo motor que utiliza Wireshark).
 
-### Windows
+### Linux x64
+- **Paquete Debian / Ubuntu / Kali / Mint**: `kuruta-linux-x64.deb`
+  ```bash
+  sudo dpkg -i kuruta-linux-x64.deb
+  ```
+  *Configura automáticamente permisos `setcap` e integra el icono y lanzador en el menú de aplicaciones del sistema.*
+- **Paquete Universal (Arch, Fedora, openSUSE)**: `kuruta-linux-x64.tar.gz`
+  ```bash
+  tar -xzvf kuruta-linux-x64.tar.gz
+  cd kuruta-linux-x64
+  sudo ./install.sh
+  ```
+- **Binario portable directo**: `kuruta-linux-x64`
+  ```bash
+  chmod +x kuruta-linux-x64
+  sudo setcap cap_net_raw,cap_net_admin=eip ./kuruta-linux-x64
+  ./kuruta-linux-x64
+  ```
 
-1. Instala [Npcap](https://npcap.com/#download) (el mismo motor que usa
-   Wireshark). Sin Npcap la consola abre, pero la captura falla.
-2. Ejecuta `kuruta-windows-x64.exe`. Si vas a ver todo el tráfico de la NIC,
-   abre el programa como administrador.
-3. Elige la interfaz, un filtro BPF opcional (`tcp`, `port 53`, `arp`…) y pulsa
-   **Iniciar**.
+Datos locales: `%LOCALAPPDATA%\Kuruta\` en Windows y `~/.local/share/kuruta/` en Linux.
 
-### Linux
-
-```bash
-chmod +x kuruta-linux-x64 kuruta-agent-linux-x64
-sudo setcap cap_net_raw,cap_net_admin=eip ./kuruta-linux-x64
-./kuruta-linux-x64
-```
-
-Si no puedes usar `setcap`, ejecuta la app con `sudo`. El servicio local sigue
-escuchando solo en `127.0.0.1:8765`.
-
-Datos: `%LOCALAPPDATA%\Kuruta\` en Windows y
-`~/.local/share/kuruta/` (o `$XDG_DATA_HOME/kuruta`) en Linux.
-
-GitHub Actions genera los binarios al publicar una etiqueta `v*`.
+GitHub Actions compila automáticamente todos los instaladores al publicar una etiqueta `v*` o mediante ejecución manual de workflow.
 
 ## Uso de la consola
 

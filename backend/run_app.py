@@ -53,12 +53,26 @@ def run_server() -> None:
 
 def open_window(url: str) -> bool:
     """Open a native window when a WebView runtime is available."""
+    if sys.platform == "win32":
+        try:
+            import ctypes
+            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("esteban4cro.kuruta.ids.0.2.0")
+        except Exception:
+            pass
+
     try:
         import webview
     except Exception:
         return False
-    window = webview.create_window("Kuruta", url, width=1400, height=860)
-    webview.start()
+    window = webview.create_window(
+        "Kuruta · IDS & Packet Sniffer",
+        url,
+        width=1440,
+        height=900,
+        min_size=(1050, 680),
+        background_color="#000000",
+    )
+    webview.start(gui="edgechromium" if sys.platform == "win32" else None)
     return window is not None
 
 
