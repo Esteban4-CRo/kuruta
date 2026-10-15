@@ -111,3 +111,18 @@ def test_api_rejects_payload_larger_than_limit(tmp_path: Path) -> None:
         )
 
     assert response.status_code == 413
+
+
+def test_api_serves_manual_and_root(tmp_path: Path) -> None:
+    """Verify that root and /manual endpoints return HTML documents."""
+    app = create_app(tmp_path / "manual.db", RULES_DIRECTORY)
+    with TestClient(app) as client:
+        root_res = client.get("/")
+        manual_res = client.get("/manual")
+
+    assert root_res.status_code == 200
+    assert "text/html" in root_res.headers.get("content-type", "")
+    assert manual_res.status_code == 200
+    assert "text/html" in manual_res.headers.get("content-type", "")
+    assert "Kuruta IDS" in manual_res.text
+
