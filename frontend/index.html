@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Kuruta · IDS & Packet Sniffer</title>
+    <link rel="icon" href="/assets/kuruta-logo.png" />
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <!-- HEADER / CONTROLES DE CAPTURA -->
+    <header class="topbar">
+      <div class="brand">
+        <img src="/assets/kuruta-logo.png" alt="Logo Kuruta" class="logo" />
+        <div class="brand-text">
+          <div class="brand-title">
+            <strong>KURUTA</strong>
+            <span class="version-tag">v0.2.0</span>
+          </div>
+          <span class="brand-subtitle">IDS LOCAL · SNIFFER & ANALIZADOR</span>
+        </div>
+      </div>
+
+      <div class="topbar-controls">
+        <label class="field iface-field">
+          <span>Interfaz</span>
+          <select id="iface" title="Selecciona la tarjeta de red para capturar"></select>
+        </label>
+
+        <label class="field bpf-field">
+          <span>Filtro de captura (BPF)</span>
+          <input id="bpf" placeholder="Ej: tcp port 80 or udp port 53 or arp" autocomplete="off" />
+        </label>
+
+        <label class="check-box" title="Capturar en modo promiscuo">
+          <input id="promisc" type="checkbox" checked />
+          <span>Promiscuo</span>
+        </label>
+
+        <div class="button-group">
+          <button id="start" type="button" class="btn btn-primary">
+            <span class="indicator-dot"></span> Iniciar
+          </button>
+          <button id="stop" type="button" class="btn" disabled>Detener</button>
+          <button id="clear" type="button" class="btn">Limpiar</button>
+          <button id="toggleScroll" type="button" class="btn btn-toggle" title="Alternar auto-desplazamiento al recibir paquetes">Auto-scroll: ON</button>
+          <a class="btn btn-export" id="export" href="/api/v1/sniffer/export.pcap" download="kuruta-capture.pcap" title="Descargar búfer actual en formato PCAP (compatible con Wireshark)">Descargar PCAP</a>
+        </div>
+      </div>
+    </header>
+
+    <!-- BARRA DE FILTRO ESTILO WIRESHARK Y TABS -->
+    <div class="filterbar">
+      <div class="filter-input-wrap">
+        <span class="filter-icon">🔍</span>
+        <input
+          id="displayFilter"
+          placeholder="Filtro de visualización: tcp · dns · ip.addr == 192.168.1.1 · tcp.port == 443 · http or tls · flagged"
+          autocomplete="off"
+          spellcheck="false"
+        />
+        <button id="clearFilterBtn" type="button" class="btn-icon" title="Limpiar filtro">✕</button>
+        <span id="filterState" class="filter-pill">filtro vacío</span>
+      </div>
+
+      <nav class="tabs" aria-label="Vistas">
+        <button type="button" class="tab active" data-view="capture">
+          Paquetes <span id="tabPacketCount" class="tab-badge">0</span>
+        </button>
+        <button type="button" class="tab" data-view="stats">Estadísticas</button>
+        <button type="button" class="tab" data-view="anomalies">
+          Anomalías <span id="tabAnomalyCount" class="tab-badge warning">0</span>
+        </button>
+        <button type="button" class="tab" data-view="alerts">Alertas Reglas</button>
+        <button type="button" class="tab" data-view="events">Host</button>
+      </nav>
+    </div>
+
+    <!-- PRESETS DE FILTRO RÁPIDO -->
+    <div class="quickbar" aria-label="Filtros rápidos">
+      <span class="quickbar-label">Filtros rápidos:</span>
+      <button type="button" class="quick-pill active" data-filter="">Todos</button>
+      <button type="button" class="quick-pill" data-filter="tcp">TCP</button>
+      <button type="button" class="quick-pill" data-filter="udp">UDP</button>
+      <button type="button" class="quick-pill" data-filter="dns or mdns">DNS / mDNS</button>
+      <button type="button" class="quick-pill" data-filter="http or tls">HTTP / TLS</button>
+      <button type="button" class="quick-pill" data-filter="arp">ARP</button>
+      <button type="button" class="quick-pill" data-filter="icmp or icmpv6">ICMP</button>
+      <button type="button" class="quick-pill" data-filter="dhcp">DHCP</button>
+      <button type="button" class="quick-pill" data-filter="ssh">SSH</button>
+      <button type="button" class="quick-pill warning-pill" data-filter="flagged">⚠️ Anomalías</button>
+    </div>
+
+    <!-- VISTA PRINCIPAL: WIRESHARK 3-PANEL -->
+    <main id="view-capture" class="view">
+      <!-- PANEL 1: LISTA DE PAQUETES -->
+      <section class="packet-table-wrapper" aria-label="Lista de paquetes">
+        <table class="packet-table">
+          <thead>
+            <tr>
+              <th class="col-no">No.</th>
+              <th class="col-time">Tiempo (s)</th>
+              <th class="col-src">Origen</th>
+              <th class="col-dst">Destino</th>
+              <th class="col-proto">Protocolo</th>
+              <th class="col-len">Longitud</th>
+              <th class="col-info">Información</th>
+            </tr>
+          </thead>
+          <tbody id="packetBody"></tbody>
+        </table>
+      </section>
+
+      <!-- BARRA DE ACCIONES PARA EL PAQUETE SELECCIONADO -->
+      <div class="packet-actions-bar">
+        <div class="selected-summary" id="selectedSummary">
+          Selecciona un paquete para ver el detalle de capas y el volcado hexadecimal. Doble clic para seguir stream TCP/UDP.
+        </div>
+        <div class="packet-actions-buttons">
+          <button id="btnFollowStream" type="button" class="btn btn-sm" disabled>Seguir Stream</button>
+          <button id="btnCopyHex" type="button" class="btn btn-sm" disabled>Copiar Hex</button>
+          <button id="btnCopySummary" type="button" class="btn btn-sm" disabled>Copiar Resumen</button>
+        </div>
+      </div>
+
+      <!-- PANEL 2 & 3: DETALLE DE PROTOCOLOS Y VOLCADO HEX -->
+      <section class="split-view">
+        <div class="pane-box detail-box">
+          <div class="pane-header">
+            <span>ÁRBOL DE PROTOCOLOS Y CAMPOS</span>
+          </div>
+          <pre id="detailTree" class="pane-content" aria-label="Detalle del protocolo"></pre>
+        </div>
+        <div class="pane-box hex-box">
+          <div class="pane-header">
+            <span>VOLCADO HEXADECIMAL (OFFSET / HEX / ASCII)</span>
+          </div>
+          <pre id="hexDump" class="pane-content hex-content" aria-label="Volcado hexadecimal"></pre>
+        </div>
+      </section>
+    </main>
+
+    <!-- VISTA ESTADÍSTICAS -->
+    <main id="view-stats" class="view hidden">
+      <div class="cards-grid" id="statCards"></div>
+      <div class="stats-columns">
+        <section class="stats-panel">
+          <h3>DISTRIBUCIÓN DE PROTOCOLOS</h3>
+          <div id="statProtocols" class="stats-content"></div>
+        </section>
+        <section class="stats-panel">
+          <h3>TOP CONVERSACIONES</h3>
+          <pre id="statConvos" class="stats-content"></pre>
+        </section>
+        <section class="stats-panel">
+          <h3>TOP ENDPOINTS (DIRECCIONES IP)</h3>
+          <pre id="statEndpoints" class="stats-content"></pre>
+        </section>
+      </div>
+    </main>
+
+    <!-- VISTA ANOMALÍAS DE RED -->
+    <main id="view-anomalies" class="view hidden">
+      <div class="feed-header">
+        <h2>Señales Heurísticas y Detección de Anomalías</h2>
+        <p>Señales de comportamiento anómalo detectadas en vivo durante la captura (escaneos verticales/horizontales, inundaciones SYN/ICMP, anomalías de entropía DNS, conflictos ARP y flags TCP inválidos).</p>
+      </div>
+      <ul id="anomalyList" class="anomaly-feed"></ul>
+    </main>
+
+    <!-- VISTA ALERTAS DE REGLAS -->
+    <main id="view-alerts" class="view hidden">
+      <div class="feed-header">
+        <h2>Alertas de Reglas de Detección</h2>
+        <p>Coincidencias generadas por el motor de reglas analíticas locales.</p>
+      </div>
+      <ul id="alertList" class="anomaly-feed"></ul>
+    </main>
+
+    <!-- VISTA EVENTOS DEL HOST -->
+    <main id="view-events" class="view hidden">
+      <div class="feed-header">
+        <h2>Telemetría del Host (Agente Kuruta)</h2>
+        <p>Eventos de procesos locales recolectados por el agente Rust.</p>
+      </div>
+      <ul id="eventList" class="anomaly-feed"></ul>
+    </main>
+
+    <!-- MODAL DE SEGUIMIENTO DE STREAM -->
+    <div id="streamModal" class="modal-overlay hidden">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h3 id="streamModalTitle">Seguimiento de Stream</h3>
+          <button id="closeStreamModal" type="button" class="btn-icon">✕</button>
+        </div>
+        <div class="modal-body">
+          <pre id="streamModalContent" class="stream-text"></pre>
+        </div>
+        <div class="modal-footer">
+          <button id="btnCopyStream" type="button" class="btn">Copiar Contenido</button>
+          <button id="btnCloseStreamBtn" type="button" class="btn btn-primary">Cerrar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- BARRA DE ESTADO INFERIOR -->
+    <footer class="status-bar">
+      <div class="status-left">
+        <span id="runState" class="status-indicator">● detenido</span>
+        <span id="counts" class="status-item">0 paquetes</span>
+        <span id="rateStat" class="status-item">0 pps · 0 B</span>
+        <span id="wsState" class="status-item">socket: inicializando…</span>
+        <span id="captureError" class="status-error"></span>
+      </div>
+      <div class="status-right">
+        <span class="status-hint">
+          Modo sniffer activo · Compatible con Windows (Npcap) y Linux (cap_net_raw / sudo) · Base de datos local SQLite
+        </span>
+      </div>
+    </footer>
+
+    <script src="/static/app.js"></script>
+  </body>
+</html>

@@ -1,0 +1,10 @@
+{
+  "id": "network-arp-conflict",
+  "name": "ARP address conflict",
+  "description": "The same IPv4 address was advertised by more than one MAC address on the captured segment.",
+  "severity": "high",
+  "event_type": "network.arp_conflict",
+  "platforms": ["windows", "linux"],
+  "field": "kind",
+  "equals": ["arp-conflict"]
+}

@@ -71,3 +71,11 @@ class AlertDraft(BaseModel):
     title: str
     description: str
     severity: Severity
+
+
+class CaptureStartRequest(BaseModel):
+    """Parameters for starting a local packet capture session."""
+
+    interface: str = Field(min_length=1, max_length=255)
+    bpf: str = Field(default="", max_length=512)
+    promiscuous: bool = True

@@ -1,0 +1,10 @@
+{
+  "id": "network-syn-flood",
+  "name": "SYN flood pattern",
+  "description": "A high rate of TCP SYN frames without ACK was observed toward one destination. This is a signal to review, not proof of an attack.",
+  "severity": "high",
+  "event_type": "network.syn_flood",
+  "platforms": ["windows", "linux"],
+  "field": "kind",
+  "equals": ["syn-flood"]
+}

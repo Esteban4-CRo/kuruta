@@ -1,16 +1,13 @@
 # Agente Kuruta en Linux
 
-El agente compartido está en `agents/kuruta-agent/`; esta carpeta describe el
-despliegue específico de Linux. El MVP compila para Linux x86_64 con una
-instalación estable de Rust y Cargo:
+El sensor de procesos compartido está en `agents/kuruta-agent/`. La captura de
+paquetes no vive en este binario: forma parte de `kuruta-linux-x64` (Scapy +
+libpcap).
 
 ```bash
 cargo build --release --manifest-path agents/kuruta-agent/Cargo.toml
 ```
 
-El ejecutable se genera bajo `agents/kuruta-agent/target/release/kuruta-agent`.
-
-El agente solo consulta procesos visibles para la cuenta que lo ejecuta. No
-instala una unidad `systemd`, no eleva privilegios, no obtiene argumentos de
-línea de comandos y no captura paquetes. Las fuentes de `auditd`, journald,
-eBPF y captura libpcap no están implementadas todavía.
+El agente solo consulta procesos visibles para la cuenta que lo ejecuta. Para
+el sniffer, otorga `cap_net_raw` y `cap_net_admin` al ejecutable de la app o
+arráncalo con privilegios de captura.

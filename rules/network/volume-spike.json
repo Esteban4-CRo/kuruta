@@ -1,0 +1,10 @@
+{
+  "id": "network-volume-spike",
+  "name": "Host volume spike",
+  "description": "One address emitted a sudden burst of frames on the captured interface.",
+  "severity": "medium",
+  "event_type": "network.volume_spike",
+  "platforms": ["windows", "linux"],
+  "field": "kind",
+  "equals": ["volume-spike"]
+}

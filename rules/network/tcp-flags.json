@@ -1,0 +1,10 @@
+{
+  "id": "network-tcp-scan-flags",
+  "name": "Unusual TCP flags",
+  "description": "NULL, FIN, or Xmas-style TCP flags were seen. These appear in some reconnaissance tools and also in malformed traffic.",
+  "severity": "medium",
+  "event_type": "network.tcp_scan_flags",
+  "platforms": ["windows", "linux"],
+  "field": "kind",
+  "equals": ["suspicious-tcp-flags"]
+}

@@ -4,6 +4,7 @@ on:
   push:
     tags:
       - "v*"
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -30,6 +31,9 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.rust-target }}
+      - name: Install packet capture libraries
+        if: matrix.platform == 'linux'
+        run: sudo apt-get update && sudo apt-get install -y libpcap-dev
       - name: Install Python service and bundler
         run: python -m pip install -e ".[dev]"
       - name: Run backend tests
@@ -40,7 +44,7 @@ jobs:
         with:
           name: kuruta-${{ matrix.platform }}-x64
           path: |
-            dist/release/kuruta-server-${{ matrix.platform }}-x64*
+            dist/release/kuruta-${{ matrix.platform }}-x64*
             dist/release/kuruta-agent-${{ matrix.platform }}-x64*
           if-no-files-found: error
           retention-days: 7

@@ -1,0 +1,10 @@
+{
+  "id": "network-port-scan",
+  "name": "Port scan pattern",
+  "description": "The sniffer saw many destination ports or hosts from one source in a short window. Confirm whether a scan or inventory job is authorized.",
+  "severity": "high",
+  "event_type": "network.port_scan",
+  "platforms": ["windows", "linux"],
+  "field": "kind",
+  "equals": ["vertical-port-scan", "horizontal-port-scan"]
+}

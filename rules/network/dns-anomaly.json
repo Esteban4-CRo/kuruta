@@ -1,0 +1,10 @@
+{
+  "id": "network-dns-anomaly",
+  "name": "Unusual DNS query pattern",
+  "description": "DNS names were unusually long or highly unique. This can indicate tunneling or noisy software; review the queries.",
+  "severity": "medium",
+  "event_type": "network.dns_anomaly",
+  "platforms": ["windows", "linux"],
+  "field": "kind",
+  "equals": ["dns-anomaly"]
+}

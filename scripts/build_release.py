@@ -1,4 +1,4 @@
-"""Build direct, self-contained native executable assets for Kuruta releases."""
+"""Build self-contained native application assets for Kuruta releases."""
 
 from __future__ import annotations
 
@@ -21,26 +21,37 @@ def run(command: list[str]) -> None:
     subprocess.run(command, cwd=ROOT, check=True)
 
 
-def build_server(platform_name: str) -> Path:
-    """Freeze the FastAPI service and its rules into a native executable."""
-    server_stem = f"kuruta-server-{platform_name}-x64"
+def application_icon() -> Path:
+    """Rasterize the official logo into a Windows .ico for the frozen app."""
     DIST.mkdir(parents=True, exist_ok=True)
     icon_path = DIST / "kuruta.ico"
     with Image.open(ROOT / "assets" / "kuruta-logo.png") as logo:
         logo.save(icon_path, format="ICO", sizes=[(16, 16), (32, 32), (48, 48), (256, 256)])
+    return icon_path
+
+
+def build_app(platform_name: str) -> Path:
+    """Freeze the desktop console, sniffer API, rules, UI, and logo."""
+    app_stem = f"kuruta-{platform_name}-x64"
+    icon_path = application_icon()
     icon_arguments = ["--icon", str(icon_path)] if platform_name == "windows" else []
+    windowed = ["--windowed"] if platform_name == "windows" else []
     PyInstaller.__main__.run(
         [
-            str(ROOT / "backend" / "run_server.py"),
+            str(ROOT / "backend" / "run_app.py"),
             "--clean",
             "--noconfirm",
             "--onefile",
             "--name",
-            server_stem,
+            app_stem,
             "--paths",
             str(ROOT),
             "--add-data",
             f"{ROOT / 'rules'}{os.pathsep}rules",
+            "--add-data",
+            f"{ROOT / 'frontend'}{os.pathsep}frontend",
+            "--add-data",
+            f"{ROOT / 'assets'}{os.pathsep}assets",
             "--collect-all",
             "uvicorn",
             "--collect-all",
@@ -49,7 +60,16 @@ def build_server(platform_name: str) -> Path:
             "pydantic",
             "--collect-all",
             "starlette",
+            "--collect-all",
+            "scapy",
+            "--hidden-import",
+            "webview",
+            "--hidden-import",
+            "backend.sniffer.decode",
+            "--hidden-import",
+            "backend.sniffer.capture",
             *icon_arguments,
+            *windowed,
             "--distpath",
             str(DIST),
             "--workpath",
@@ -59,57 +79,65 @@ def build_server(platform_name: str) -> Path:
         ]
     )
     suffix = ".exe" if sys.platform == "win32" else ""
-    executable = DIST / f"{server_stem}{suffix}"
+    executable = DIST / f"{app_stem}{suffix}"
     if not executable.is_file():
         raise FileNotFoundError(f"PyInstaller did not create {executable}")
     return executable
 
 
-def build_release_assets(platform_name: str) -> list[Path]:
-    """Build the backend and agent as two independently downloadable assets."""
+def build_release_assets(platform_name: str, build_agent: bool = True) -> list[Path]:
+    """Build the desktop app and host agent as independently downloadable files."""
     is_windows = platform_name == "windows"
-    cargo_target = (
-        "x86_64-pc-windows-msvc"
-        if is_windows
-        else "x86_64-unknown-linux-gnu"
-    )
-    run(
-        [
-            "cargo",
-            "build",
-            "--release",
-            "--target",
-            cargo_target,
-            "--manifest-path",
-            str(ROOT / "agents" / "kuruta-agent" / "Cargo.toml"),
-        ]
-    )
-
     agent_suffix = ".exe" if is_windows else ""
-    agent_source = (
-        ROOT
-        / "agents"
-        / "kuruta-agent"
-        / "target"
-        / cargo_target
-        / "release"
-        / f"kuruta-agent{agent_suffix}"
-    )
-    if not agent_source.is_file():
-        raise FileNotFoundError(f"Cargo did not create {agent_source}")
-
     DIST.mkdir(parents=True, exist_ok=True)
-    server_source = build_server(platform_name)
-    server_asset = DIST / f"kuruta-server-{platform_name}-x64{agent_suffix}"
-    agent_asset = DIST / f"kuruta-agent-{platform_name}-x64{agent_suffix}"
-    if server_source != server_asset:
-        shutil.move(str(server_source), server_asset)
-    shutil.copy2(agent_source, agent_asset)
+    
+    app_source = build_app(platform_name)
+    app_asset = DIST / f"kuruta-{platform_name}-x64{agent_suffix}"
+    if app_source != app_asset:
+        shutil.move(str(app_source), app_asset)
 
     if not is_windows:
-        server_asset.chmod(0o755)
-        agent_asset.chmod(0o755)
-    return [server_asset, agent_asset]
+        app_asset.chmod(0o755)
+
+    assets = [app_asset]
+
+    if build_agent:
+        cargo_target = (
+            "x86_64-pc-windows-msvc"
+            if is_windows
+            else "x86_64-unknown-linux-gnu"
+        )
+        run(
+            [
+                "cargo",
+                "build",
+                "--release",
+                "--target",
+                cargo_target,
+                "--manifest-path",
+                str(ROOT / "agents" / "kuruta-agent" / "Cargo.toml"),
+            ]
+        )
+
+        agent_source = (
+            ROOT
+            / "agents"
+            / "kuruta-agent"
+            / "target"
+            / cargo_target
+            / "release"
+            / f"kuruta-agent{agent_suffix}"
+        )
+        if not agent_source.is_file():
+            raise FileNotFoundError(f"Cargo did not create {agent_source}")
+
+        agent_asset = DIST / f"kuruta-agent-{platform_name}-x64{agent_suffix}"
+        shutil.copy2(agent_source, agent_asset)
+        if not is_windows:
+            agent_asset.chmod(0o755)
+        assets.append(agent_asset)
+
+    return assets
 
 
 def main() -> None:
@@ -121,10 +149,15 @@ def main() -> None:
         required=True,
         help="Target OS; the runner must match the selected platform.",
     )
+    parser.add_argument(
+        "--skip-agent",
+        action="store_true",
+        help="Build only the desktop application, skipping the Rust host agent.",
+    )
     args = parser.parse_args()
     if (args.platform == "windows") != (sys.platform == "win32"):
         parser.error("Build each release asset on a native runner for its platform.")
-    for asset in build_release_assets(args.platform):
+    for asset in build_release_assets(args.platform, build_agent=not args.skip_agent):
         print(f"Created release executable: {asset}")
 
 

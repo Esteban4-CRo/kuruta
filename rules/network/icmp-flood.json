@@ -1,0 +1,10 @@
+{
+  "id": "network-icmp-flood",
+  "name": "ICMP flood pattern",
+  "description": "A host sent a large burst of ICMP frames on the captured interface.",
+  "severity": "medium",
+  "event_type": "network.icmp_flood",
+  "platforms": ["windows", "linux"],
+  "field": "kind",
+  "equals": ["icmp-flood"]
+}

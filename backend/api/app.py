@@ -1,20 +1,33 @@
-"""HTTP endpoints for the local Kuruta event collector."""
+"""HTTP endpoints, live sniffer API, and desktop console assets for Kuruta."""
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 import sys
 from contextlib import asynccontextmanager
+from dataclasses import asdict
 from pathlib import Path
-from typing import Annotated, AsyncIterator
+from typing import Annotated, Any, AsyncIterator
 
-from fastapi import FastAPI, Query, Request
+from fastapi import FastAPI, HTTPException, Query, Request, WebSocket, WebSocketDisconnect
+from fastapi.responses import FileResponse, Response
+from fastapi.staticfiles import StaticFiles
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from backend.ingestion.detection import RuleEngine
-from backend.ingestion.schema import AlertRecord, EventRecord, HealthRecord
+from backend.ingestion.schema import (
+    AlertRecord,
+    CaptureStartRequest,
+    EventRecord,
+    HealthRecord,
+)
 from backend.ingestion.store import EventStore
+from backend.sniffer.anomalies import AnomalyFinding
+from backend.sniffer.capture import CaptureEngine, list_capture_interfaces
+from backend.sniffer.display_filter import validate_display_filter
+from backend.sniffer.models import StoredPacket
 
 LOGGER = logging.getLogger("kuruta.api")
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -38,6 +51,16 @@ def bundled_rules_directory() -> Path:
     """Find rules beside source files or inside a PyInstaller one-file bundle."""
     bundle_root = Path(getattr(sys, "_MEIPASS", PROJECT_ROOT))
     return bundle_root / "rules"
+
+
+def bundled_frontend_directory() -> Path:
+    """Find the desktop console files in source or in a frozen bundle."""
+    return Path(getattr(sys, "_MEIPASS", PROJECT_ROOT)) / "frontend"
+
+
+def bundled_assets_directory() -> Path:
+    """Find the project logo and related assets."""
+    return Path(getattr(sys, "_MEIPASS", PROJECT_ROOT)) / "assets"
 
 
 class RequestBodySizeLimitMiddleware:
@@ -100,11 +123,45 @@ class RequestBodySizeLimitMiddleware:
         await self.app(scope, receive_buffered, send)
 
 
+class LiveHub:
+    """Fan-out captured packet summaries to desktop WebSocket clients."""
+
+    def __init__(self) -> None:
+        self._clients: set[WebSocket] = set()
+        self._loop: asyncio.AbstractEventLoop | None = None
+
+    def bind(self, loop: asyncio.AbstractEventLoop) -> None:
+        self._loop = loop
+
+    def add(self, websocket: WebSocket) -> None:
+        self._clients.add(websocket)
+
+    def discard(self, websocket: WebSocket) -> None:
+        self._clients.discard(websocket)
+
+    def publish(self, message: dict[str, Any]) -> None:
+        loop = self._loop
+        if loop is None:
+            return
+        asyncio.run_coroutine_threadsafe(self._broadcast(message), loop)
+
+    async def _broadcast(self, message: dict[str, Any]) -> None:
+        stale: list[WebSocket] = []
+        for client in list(self._clients):
+            try:
+                await client.send_json(message)
+            except Exception:
+                stale.append(client)
+        for client in stale:
+            self._clients.discard(client)
+
+
 def create_app(
     database_path: Path | None = None,
     rules_directory: Path | None = None,
+    capture_engine: CaptureEngine | None = None,
 ) -> FastAPI:
-    """Create an API instance with injectable local storage and rule paths."""
+    """Create an API instance with injectable local storage, rules, and sniffer."""
     db_path = database_path or Path(
         os.environ.get("KURUTA_DB_PATH", default_data_directory() / "kuruta.db")
     )
@@ -113,21 +170,46 @@ def create_app(
     )
     store = EventStore(db_path)
     rule_engine = RuleEngine.from_directory(rules_path)
+    hub = LiveHub()
+
+    def persist_and_publish(packet: StoredPacket, findings: list[AnomalyFinding]) -> None:
+        hub.publish({"type": "packet", "packet": packet.summary.to_dict()})
+        for finding in findings:
+            event = capture.detector().to_event(finding)
+            alerts = rule_engine.evaluate(event)
+            store.ingest(event, alerts)
+            hub.publish(
+                {
+                    "type": "anomaly",
+                    "anomaly": {
+                        **asdict(finding),
+                        "event_id": event.event_id,
+                    },
+                }
+            )
+
+    capture = capture_engine or CaptureEngine(on_packet=persist_and_publish)
+    if capture_engine is not None:
+        capture.set_on_packet(persist_and_publish)
 
     @asynccontextmanager
     async def lifespan(application: FastAPI) -> AsyncIterator[None]:
         """Create the SQLite schema before accepting requests."""
         application.state.store.initialize()
+        application.state.hub.bind(asyncio.get_running_loop())
         yield
+        application.state.capture.stop()
 
     app = FastAPI(
         title="Kuruta IDS",
-        version="0.1.0",
-        description="Local event ingestion and alert API for Kuruta.",
+        version="0.2.0",
+        description="Local IDS, packet sniffer, and anomaly console for Kuruta.",
         lifespan=lifespan,
     )
     app.state.store = store
     app.state.rule_engine = rule_engine
+    app.state.capture = capture
+    app.state.hub = hub
     app.add_middleware(
         RequestBodySizeLimitMiddleware,
         maximum_bytes=MAX_REQUEST_BYTES,
@@ -168,6 +250,101 @@ def create_app(
     ) -> list[AlertRecord]:
         """Return the newest rule matches, bounded to 500 records."""
         return request.app.state.store.list_alerts(limit)
+
+    @app.get("/api/v1/sniffer/interfaces")
+    def sniffer_interfaces() -> dict[str, object]:
+        """List local capture interfaces discovered by Scapy/Npcap/libpcap."""
+        return {"interfaces": list_capture_interfaces()}
+
+    @app.get("/api/v1/sniffer/status")
+    def sniffer_status(request: Request) -> dict[str, object]:
+        return request.app.state.capture.status()
+
+    @app.post("/api/v1/sniffer/start")
+    def sniffer_start(body: CaptureStartRequest, request: Request) -> dict[str, object]:
+        try:
+            return request.app.state.capture.start(body.interface, body.bpf, body.promiscuous)
+        except RuntimeError as error:
+            raise HTTPException(status_code=409, detail=str(error)) from error
+
+    @app.post("/api/v1/sniffer/stop")
+    def sniffer_stop(request: Request) -> dict[str, object]:
+        return request.app.state.capture.stop()
+
+    @app.post("/api/v1/sniffer/clear")
+    def sniffer_clear(request: Request) -> dict[str, object]:
+        request.app.state.capture.clear()
+        return request.app.state.capture.status()
+
+    @app.get("/api/v1/sniffer/filter")
+    def sniffer_filter(q: str = "") -> dict[str, object]:
+        error = validate_display_filter(q)
+        return {"expression": q, "ok": error is None, "error": error}
+
+    @app.get("/api/v1/sniffer/packets")
+    def sniffer_packets(
+        request: Request,
+        limit: Annotated[int, Query(ge=1, le=1000)] = 200,
+        after: Annotated[int, Query(ge=0)] = 0,
+        display_filter: str = "",
+    ) -> dict[str, object]:
+        try:
+            return request.app.state.capture.list_packets(limit, after, display_filter)
+        except ValueError as error:
+            raise HTTPException(status_code=400, detail=str(error)) from error
+
+    @app.get("/api/v1/sniffer/packets/{number}")
+    def sniffer_packet(number: int, request: Request) -> dict[str, object]:
+        try:
+            return request.app.state.capture.get_packet(number)
+        except KeyError as error:
+            raise HTTPException(status_code=404, detail="Packet not in the capture buffer.") from error
+
+    @app.get("/api/v1/sniffer/streams/{stream_id}")
+    def sniffer_stream(stream_id: str, request: Request) -> dict[str, object]:
+        return request.app.state.capture.follow_stream(stream_id)
+
+    @app.get("/api/v1/sniffer/stats")
+    def sniffer_stats(request: Request) -> dict[str, object]:
+        return request.app.state.capture.statistics()
+
+    @app.get("/api/v1/sniffer/anomalies")
+    def sniffer_anomalies(
+        request: Request,
+        limit: Annotated[int, Query(ge=1, le=500)] = 100,
+    ) -> dict[str, object]:
+        return {"anomalies": request.app.state.capture.anomalies(limit)}
+
+    @app.get("/api/v1/sniffer/export.pcap")
+    def sniffer_export(request: Request) -> Response:
+        payload = request.app.state.capture.export_pcap()
+        return Response(
+            content=payload,
+            media_type="application/vnd.tcpdump.pcap",
+            headers={"Content-Disposition": "attachment; filename=kuruta-capture.pcap"},
+        )
+
+    @app.websocket("/api/v1/sniffer/live")
+    async def sniffer_live(websocket: WebSocket) -> None:
+        await websocket.accept()
+        websocket.app.state.hub.add(websocket)
+        try:
+            while True:
+                await websocket.receive_text()
+        except WebSocketDisconnect:
+            websocket.app.state.hub.discard(websocket)
+
+    frontend_dir = bundled_frontend_directory()
+    assets_dir = bundled_assets_directory()
+    if frontend_dir.is_dir():
+        app.mount("/static", StaticFiles(directory=frontend_dir), name="static")
+
+        @app.get("/")
+        def console() -> FileResponse:
+            return FileResponse(frontend_dir / "index.html")
+
+    if assets_dir.is_dir():
+        app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
 
     return app
 

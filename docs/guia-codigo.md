@@ -1,9 +1,13 @@
 # Guía del código de Kuruta
 
-Esta guía explica el código del MVP por líneas y bloques consecutivos. Los
-números corresponden a la versión inicial de este repositorio; al editar un
-archivo, deben actualizarse los números de referencia. Las líneas en blanco solo
-separan bloques y no ejecutan lógica.
+La consola gráfica está en `frontend/`. El sniffer está en `backend/sniffer/`
+(`capture.py`, `decode.py`, `display_filter.py`, `anomalies.py`) y las rutas
+HTTP/WebSocket en `backend/api/app.py`. `backend/run_app.py` abre la ventana
+de la aplicación. Las notas siguientes describen el recolector de eventos del
+host; los números de línea del API original ya no coinciden al pie de la letra.
+
+Esta guía explica el código por bloques. Al editar un archivo, consulta el
+fuente actual antes de fiarte de un número de línea.
 
 ## Servicio HTTP — `backend/api/app.py`
 
