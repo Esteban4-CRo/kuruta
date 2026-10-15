@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Kuruta IDS · Sniffer de Red & Detección de Intrusiones de Nueva Generación</title>
+  <meta name="description" content="Analizador de paquetes y sistema de detección de intrusiones en tiempo real. Interfaz moderna monocromática, sin drivers externos, compatible con Windows y Linux." />
+  <link rel="icon" type="image/x-icon" href="assets/kuruta-logo.ico" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+  <!-- BARRA DE NAVEGACIÓN -->
+  <nav class="navbar">
+    <a href="#" class="nav-brand">
+      <img src="assets/kuruta-logo.png" alt="Kuruta Logo" class="nav-logo" onerror="this.onerror=null; this.src='kuruta-logo.png';" />
+      <span class="nav-title">KURUTA <span style="font-weight:400; opacity:0.8;">IDS</span></span>
+      <span class="nav-badge">v0.3.2</span>
+    </a>
+    <div class="nav-links">
+      <a href="#que-es" class="nav-link">¿Qué es?</a>
+      <a href="#plataformas" class="nav-link">Plataformas</a>
+      <a href="#comandos" class="nav-link">Comandos</a>
+      <a href="#filtros" class="nav-link">Filtros Wireshark</a>
+      <a href="#descargas" class="btn-nav-download">⬇ Descargar v0.3.2</a>
+    </div>
+  </nav>
+
+  <!-- HERO SECTION -->
+  <header class="hero">
+    <div class="hero-pill">
+      <span></span> Versión v0.3.2 publicada oficialmente en GitHub Releases
+    </div>
+    <h1 class="hero-title">Análisis de Red & IDS.<br />Sin Drivers. Sin Bloatware.</h1>
+    <p class="hero-subtitle">
+      Kuruta es un sniffer de paquetes de alto rendimiento y sistema de detección de intrusiones heurístico para Windows y Linux. Disección de protocolos multicapa, inspección de streams, volcado hexadecimal y consultas avanzadas estilo Wireshark en una experiencia monocromática premium.
+    </p>
+
+    <div class="hero-actions">
+      <a href="https://github.com/Esteban4-CRo/kuruta/releases/download/v0.3.2/kuruta-windows-x64.exe" class="btn-primary">
+        <span>🪟</span> Descargar para Windows (Portable .exe)
+      </a>
+      <a href="https://github.com/Esteban4-CRo/kuruta/releases/download/v0.3.2/kuruta-linux-x64.deb" class="btn-secondary">
+        <span>🐧</span> Descargar para Linux (.deb)
+      </a>
+      <a href="https://github.com/Esteban4-CRo/kuruta" target="_blank" class="btn-secondary">
+        <span>⭐</span> Ver en GitHub
+      </a>
+    </div>
+
+    <!-- TERMINAL HERO DEMO -->
+    <div class="hero-terminal">
+      <div class="terminal-header">
+        <div class="terminal-dot"></div>
+        <div class="terminal-dot"></div>
+        <div class="terminal-dot"></div>
+        <span class="terminal-title">kuruta-console — 127.0.0.1:8765</span>
+      </div>
+      <div class="terminal-body">
+        <div><span class="comment"># Ejecutar Kuruta como aplicación de escritorio nativa</span></div>
+        <div><span class="cmd">./kuruta-windows-x64.exe</span></div>
+        <div class="success">✓ Motor HTTP y WebSocket iniciado en http://127.0.0.1:8765</div>
+        <div class="success">✓ Sniffer activo en eth0 / Wi-Fi (modo autónomo sin drivers Npcap)</div>
+        <div class="success">✓ Detección heurística cargada (6 reglas IDS activas: port-scan, dns-tunnel, flags)</div>
+        <div>&nbsp;</div>
+        <div><span class="comment"># Consulta concatenada avanzada en vivo:</span></div>
+        <div><span class="tag">&gt;&gt;</span> (tcp.flags.syn == 1 and tcp.flags.ack == 0) and not (ip.src in 192.168.1.0/24)</div>
+        <div class="tag">[ALERTA IDS - HIGH] Host 185.70.42.63 detectado ejecutando SYN Port Scan vertical</div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ¿QUÉ ES KURUTA IDS? -->
+  <section id="que-es" class="section">
+    <div class="section-head">
+      <div class="section-tag">Visión General</div>
+      <h2 class="section-title">¿Qué es Kuruta IDS?</h2>
+      <p class="section-desc">
+        Diseñado para analistas de seguridad, desarrolladores y administradores de sistemas que necesitan la potencia de Wireshark combinada con la vigilancia proactiva de un IDS, en un único binario autosuficiente.
+      </p>
+    </div>
+
+    <div class="grid-3">
+      <div class="card">
+        <div class="card-icon">⚡</div>
+        <h3 class="card-title">Cero Instalación de Drivers</h3>
+        <p class="card-text">
+          En Windows, captura mediante sockets en crudo de forma automática sin forzar al usuario a instalar Npcap o WinPcap. En Linux, aprovecha AF_PACKET / libpcap nativo.
+        </p>
+      </div>
+
+      <div class="card">
+        <div class="card-icon">🛡️</div>
+        <h3 class="card-title">Motor IDS Heurístico</h3>
+        <p class="card-text">
+          Detecta en milisegundos anomalías como escaneos verticales/horizontales de puertos, paquetes con flags TCP inválidas (SYN+FIN), envenenamiento ARP y túneles DNS con alta entropía.
+        </p>
+      </div>
+
+      <div class="card">
+        <div class="card-icon">🔍</div>
+        <h3 class="card-title">Filtros Wireshark Avanzados</h3>
+        <p class="card-text">
+          Soporte completo para expresiones booleanas concatenadas (<code>and</code>, <code>or</code>, <code>not</code>), subredes CIDR, rangos de puertos, payloads y banderas TCP.
+        </p>
+      </div>
+
+      <div class="card">
+        <div class="card-icon">📜</div>
+        <h3 class="card-title">Seguimiento de Streams</h3>
+        <p class="card-text">
+          Reconstruye flujos bidireccionales completos de TCP y UDP para leer payloads HTTP, sesiones SSH, mensajes DNS y volcados hexadecimales sincronizados.
+        </p>
+      </div>
+
+      <div class="card">
+        <div class="card-icon">🔄</div>
+        <h3 class="card-title">Actualizaciones en Caliente</h3>
+        <p class="card-text">
+          Sistema de auto-actualización integrado: notifica cuando un nuevo release está listo en GitHub y permite aplicar el hot-swap con un solo clic.
+        </p>
+      </div>
+
+      <div class="card">
+        <div class="card-icon">📦</div>
+        <h3 class="card-title">Exportación & PCAP</h3>
+        <p class="card-text">
+          Arrastra cualquier archivo <code>.pcap</code> o <code>.pcapng</code> para análisis forense offline o exporta la captura actual con compatibilidad total para Wireshark y tcpdump.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- PLATAFORMAS COMPATIBLES -->
+  <section id="plataformas" class="section">
+    <div class="section-head">
+      <div class="section-tag">Compatibilidad</div>
+      <h2 class="section-title">¿Para qué equipos está disponible?</h2>
+      <p class="section-desc">
+        Binarios nativos compilados y optimizados para arquitecturas x86_64 en los principales sistemas operativos:
+      </p>
+    </div>
+
+    <div class="platforms-grid">
+      <div class="platform-card">
+        <span class="platform-badge">Microsoft Windows</span>
+        <h3 class="platform-name">Windows 10 / 11 / Server (x64)</h3>
+        <ul class="platform-details">
+          <li>Ejecutable portable <code>.exe</code> (sin instalación)</li>
+          <li>Instalador guiado <code>Kuruta-Setup.exe</code></li>
+          <li>Soporte de ventana nativa Edge WebView2</li>
+          <li>Captura por Raw Sockets o Npcap opcional</li>
+        </ul>
+      </div>
+
+      <div class="platform-card">
+        <span class="platform-badge">Debian & Ubuntu</span>
+        <h3 class="platform-name">Ubuntu 20.04+ & Debian 11+</h3>
+        <ul class="platform-details">
+          <li>Paquete instalador oficial <code>.deb</code></li>
+          <li>Entrada de menú de escritorio (<code>kuruta.desktop</code>)</li>
+          <li>Permisos de captura con <code>setcap</code> automático</li>
+          <li>Integración con WebKit2GTK o navegador local</li>
+        </ul>
+      </div>
+
+      <div class="platform-card">
+        <span class="platform-badge">Otras distribuciones Linux</span>
+        <h3 class="platform-name">Arch, Fedora, RHEL, openSUSE</h3>
+        <ul class="platform-details">
+          <li>Binario standalone <code>kuruta-linux-x64</code></li>
+          <li>Archivo comprimido portable <code>.tar.gz</code></li>
+          <li>Modo headless para servidores o VPS remotos</li>
+          <li>Consumo ligero: menos de 80 MB de memoria RAM</li>
+        </ul>
+      </div>
+
+      <div class="platform-card">
+        <span class="platform-badge">Requisitos de Hardware</span>
+        <h3 class="platform-name">Requisitos Mínimos</h3>
+        <ul class="platform-details">
+          <li>Procesador: 64-bit Dual Core (x86_64)</li>
+          <li>Memoria RAM: 512 MB mínimo (1 GB recomendado)</li>
+          <li>Espacio en disco: 120 MB</li>
+          <li>Interfaz de red: Ethernet, Wi-Fi o Loopback</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- GUÍA DE COMANDOS -->
+  <section id="comandos" class="section">
+    <div class="section-head">
+      <div class="section-tag">Referencia Técnica</div>
+      <h2 class="section-title">Comandos y Atajos Oficiales</h2>
+      <p class="section-desc">
+        Controla Kuruta desde la línea de comandos o usa la navegación rápida por teclado dentro de la consola:
+      </p>
+    </div>
+
+    <div class="cmd-box">
+      <div class="cmd-row">
+        <div class="cmd-code">./kuruta-windows-x64.exe</div>
+        <div class="cmd-desc">Inicia Kuruta con interfaz gráfica de escritorio y auto-captura en la primera interfaz.</div>
+      </div>
+      <div class="cmd-row">
+        <div class="cmd-code">./kuruta-windows-x64.exe --headless</div>
+        <div class="cmd-desc">Arranca como servidor local en <code>http://127.0.0.1:8765</code> sin abrir ventana gráfica.</div>
+      </div>
+      <div class="cmd-row">
+        <div class="cmd-code">sudo dpkg -i kuruta-linux-x64.deb</div>
+        <div class="cmd-desc">Instala el paquete oficial en Ubuntu/Debian configurando permisos y lanzador de escritorio.</div>
+      </div>
+      <div class="cmd-row">
+        <div class="cmd-code">kuruta --help</div>
+        <div class="cmd-desc">Muestra la lista de opciones de arranque y flags de depuración.</div>
+      </div>
+      <div class="cmd-row">
+        <div class="cmd-code">Ctrl + E</div>
+        <div class="cmd-desc"><strong>Atajo UI:</strong> Iniciar / Detener la captura de paquetes en vivo.</div>
+      </div>
+      <div class="cmd-row">
+        <div class="cmd-code">Ctrl + K</div>
+        <div class="cmd-desc"><strong>Atajo UI:</strong> Enfocar la barra de filtros de visualización al instante.</div>
+      </div>
+      <div class="cmd-row">
+        <div class="cmd-code">▲ / ▼ (Flechas)</div>
+        <div class="cmd-desc"><strong>Atajo UI:</strong> Navegar entre paquetes de la tabla actualizando disección y volcado hex.</div>
+      </div>
+      <div class="cmd-row">
+        <div class="cmd-code">Doble clic en paquete</div>
+        <div class="cmd-desc"><strong>Atajo UI:</strong> Abrir ventana modal del Seguidor de Stream TCP/UDP para ver la conversación.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PLAYGROUND Y GUÍA DE FILTROS AVANZADOS -->
+  <section id="filtros" class="section">
+    <div class="section-head">
+      <div class="section-tag">Sintaxis Forense</div>
+      <h2 class="section-title">Consultas Concatenadas & Filtros Wireshark</h2>
+      <p class="section-desc">
+        Prueba el motor de filtrado en este simulador interactivo o usa los botones rápidos para explorar consultas avanzadas:
+      </p>
+    </div>
+
+    <div class="playground-box">
+      <div class="filter-input-wrap">
+        <input type="text" id="demoFilterInput" class="filter-input" value="tcp and tcp.port == 443" placeholder="Escribe un filtro (ej: (http or tls) and ip.src in 192.168.1.0/24)..." />
+        <button id="btnRunFilter" class="btn-primary" style="padding:12px 20px; font-size:13px;">Filtrar</button>
+      </div>
+
+      <div class="filter-quick-chips">
+        <span class="quick-chip" data-query="tcp and tcp.port == 443">HTTPS (tcp.port == 443)</span>
+        <span class="quick-chip" data-query="dns or mdns">Consultas DNS / mDNS</span>
+        <span class="quick-chip" data-query="flagged or anomaly">Anomalías IDS</span>
+        <span class="quick-chip" data-query="tcp.flags.syn == 1 and tcp.flags.ack == 0">SYN Scan puro</span>
+        <span class="quick-chip" data-query="(http or tls) and ip.src in 192.168.1.0/24">Web de Red Local (CIDR)</span>
+        <span class="quick-chip" data-query="frame contains 'password' or frame contains 'Bearer'">Credenciales en claro</span>
+      </div>
+
+      <div class="demo-table-wrap">
+        <table class="demo-table">
+          <thead>
+            <tr>
+              <th>No.</th>
+              <th>Protocolo</th>
+              <th>Origen</th>
+              <th>Destino</th>
+              <th>Longitud</th>
+              <th>Info</th>
+            </tr>
+          </thead>
+          <tbody id="demoTableBody">
+            <!-- Rellenado dinámicamente con JavaScript -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- DESCARGAS -->
+  <section id="descargas" class="section">
+    <div class="section-head">
+      <div class="section-tag">Descarga Oficial</div>
+      <h2 class="section-title">Descargar Kuruta IDS v0.3.2</h2>
+      <p class="section-desc">
+        Binarios firmados con hashes verificables distribuidos a través de GitHub Releases:
+      </p>
+    </div>
+
+    <div class="grid-3">
+      <div class="card" style="border-top: 3px solid #ffffff;">
+        <div class="card-icon">🪟</div>
+        <h3 class="card-title">Windows Portable</h3>
+        <p class="card-text" style="margin-bottom:20px;">
+          Ejecutable único sin necesidad de instalación. Descarga, haz doble clic y comienza a capturar.
+        </p>
+        <a href="https://github.com/Esteban4-CRo/kuruta/releases/download/v0.3.2/kuruta-windows-x64.exe" class="btn-primary" style="width:100%; justify-content:center;">
+          Descargar .exe (40 MB)
+        </a>
+      </div>
+
+      <div class="card" style="border-top: 3px solid #ffffff;">
+        <div class="card-icon">💿</div>
+        <h3 class="card-title">Windows Setup</h3>
+        <p class="card-text" style="margin-bottom:20px;">
+          Instalador completo con acceso directo en menú inicio, registro del sistema y desinstalador.
+        </p>
+        <a href="https://github.com/Esteban4-CRo/kuruta/releases/download/v0.3.2/Kuruta-Setup-windows-x64.exe" class="btn-primary" style="width:100%; justify-content:center;">
+          Descargar Setup (42 MB)
+        </a>
+      </div>
+
+      <div class="card" style="border-top: 3px solid #ffffff;">
+        <div class="card-icon">🐧</div>
+        <h3 class="card-title">Ubuntu / Debian .deb</h3>
+        <p class="card-text" style="margin-bottom:20px;">
+          Paquete nativo con configuración de capacidades <code>CAP_NET_RAW</code> y menú de aplicaciones.
+        </p>
+        <a href="https://github.com/Esteban4-CRo/kuruta/releases/download/v0.3.2/kuruta-linux-x64.deb" class="btn-primary" style="width:100%; justify-content:center;">
+          Descargar .deb (62 MB)
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer class="footer">
+    <div style="max-width: 1200px; margin: 0 auto; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px;">
+      <div>
+        <strong>Kuruta IDS</strong> · Licencia MIT · Código abierto desarrollado por Esteban4-CRo
+      </div>
+      <div>
+        <a href="https://github.com/Esteban4-CRo/kuruta" target="_blank">Repositorio GitHub</a> · 
+        <a href="https://github.com/Esteban4-CRo/kuruta/releases" target="_blank">Historial de Releases</a> · 
+        <a href="https://github.com/Esteban4-CRo/kuruta/blob/main/LICENSE" target="_blank">Licencia</a>
+      </div>
+    </div>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>

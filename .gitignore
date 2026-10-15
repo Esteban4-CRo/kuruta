@@ -20,7 +20,7 @@ dist/
 .DS_Store
 Thumbs.db
 
-# Local downloads and website staging
-website/
+# Local downloads
 latest_release*/
+
 
