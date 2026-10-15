@@ -665,13 +665,88 @@ function setupEvents() {
   });
 }
 
+// ==========================================================================
+// AUTO-UPDATE SYSTEM
+// ==========================================================================
+const updateState = {
+  info: null,        // UpdateInfo from API
+  dismissed: false,
+  applying: false,
+};
+
+async function checkForUpdate() {
+  try {
+    const info = await api("/api/v1/update/check");
+    updateState.info = info;
+    if (info.has_update && !updateState.dismissed) {
+      showUpdateBanner(info);
+    }
+  } catch (_err) {
+    // Silent — no network or GitHub unreachable
+  }
+}
+
+function showUpdateBanner(info) {
+  const banner = $("updateBanner");
+  $("updateBannerText").textContent =
+    `Nueva versión disponible: v${info.latest}  (tienes v${info.current})`;
+
+  // Show first line of release notes as subtitle
+  const firstLine = (info.release_notes || "")
+    .split("\n")
+    .filter(Boolean)[0] || "";
+  $("updateBannerNotes").textContent = firstLine ? `· ${firstLine}` : "";
+
+  banner.classList.remove("hidden");
+}
+
+async function applyUpdate() {
+  if (updateState.applying || !updateState.info?.download_url) return;
+  updateState.applying = true;
+
+  const btn = $("btnUpdate");
+  btn.disabled = true;
+  btn.textContent = "⏬ Descargando...";
+  $("sbErrorText").textContent = "Descargando actualización, espera...";
+
+  try {
+    await api("/api/v1/update/apply", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ download_url: updateState.info.download_url }),
+    });
+    btn.textContent = "✓ Reiniciando...";
+    $("sbErrorText").textContent = "Actualización aplicada. La app se reiniciará en segundos.";
+    // Reconnect after delay
+    setTimeout(() => location.reload(), 4000);
+  } catch (err) {
+    btn.disabled = false;
+    btn.textContent = "⬆ Actualizar ahora";
+    updateState.applying = false;
+    $("sbErrorText").textContent = `Error al actualizar: ${err.message}`;
+  }
+}
+
+function setupUpdateEvents() {
+  $("btnUpdate").addEventListener("click", () => applyUpdate().catch(showError));
+  $("btnUpdateDismiss").addEventListener("click", () => {
+    updateState.dismissed = true;
+    $("updateBanner").classList.add("hidden");
+  });
+}
+
 // INITIAL BOOT
 async function boot() {
   setupEvents();
+  setupUpdateEvents();
   await loadInterfaces();
   await refreshStatus();
   await applyFilter();
   connectLive();
+
+  // Check for updates 5 seconds after boot, then every 30 minutes
+  setTimeout(() => checkForUpdate(), 5000);
+  setInterval(() => checkForUpdate(), 30 * 60 * 1000);
 
   setInterval(() => {
     refreshStatus().catch(() => {});

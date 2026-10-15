@@ -202,7 +202,7 @@ def create_app(
 
     app = FastAPI(
         title="Kuruta IDS",
-        version="0.2.0",
+        version="0.3.0",
         description="Local IDS, packet sniffer, and anomaly console for Kuruta.",
         lifespan=lifespan,
     )
@@ -219,6 +219,41 @@ def create_app(
     def health() -> HealthRecord:
         """Report that the HTTP service is responding."""
         return HealthRecord(status="ok", service="kuruta-api")
+
+    @app.get("/api/v1/version")
+    def api_version() -> dict[str, str]:
+        """Return the running build version."""
+        from backend.updater import CURRENT_VERSION
+        return {"version": CURRENT_VERSION}
+
+    @app.get("/api/v1/update/check")
+    async def update_check() -> dict[str, object]:
+        """Check GitHub Releases for a newer version (non-blocking, runs in thread pool)."""
+        import asyncio
+        from backend.updater import check_for_update
+        loop = asyncio.get_running_loop()
+        info = await loop.run_in_executor(None, check_for_update)
+        return {
+            "current": info.current,
+            "latest": info.latest,
+            "has_update": info.has_update,
+            "release_notes": info.release_notes,
+            "download_url": info.download_url,
+            "tag": info.tag,
+        }
+
+    @app.post("/api/v1/update/apply")
+    async def update_apply(request: Request) -> dict[str, object]:
+        """Download and hot-swap the new binary. The process restarts automatically."""
+        import asyncio
+        from backend.updater import _download_and_replace
+        body = await request.json()
+        download_url: str = body.get("download_url", "")
+        if not download_url:
+            raise HTTPException(status_code=400, detail="Se requiere download_url")
+        loop = asyncio.get_running_loop()
+        await loop.run_in_executor(None, _download_and_replace, download_url)
+        return {"status": "restarting"}
 
     @app.post("/api/v1/events", status_code=202)
     def ingest_event(event: EventRecord, request: Request) -> dict[str, object]:
