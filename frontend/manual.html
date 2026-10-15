@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Kuruta IDS — Manual de Usuario</title>
+  <style>
+    :root {
+      --bg: #0d0d0e; --surface: #141418; --border: #2a2a32;
+      --text: #e8e8ec; --muted: #8e8e93; --accent: #ffffff;
+      --code-bg: #1a1a1f; --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      --mono: "Cascadia Code", Consolas, "Courier New", monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      background: var(--bg); color: var(--text); font: 13px/1.6 var(--font);
+      display: flex; min-height: 100vh;
+    }
+    /* SIDEBAR */
+    nav {
+      width: 240px; flex-shrink: 0; background: var(--surface);
+      border-right: 1px solid var(--border); padding: 20px 0;
+      position: sticky; top: 0; height: 100vh; overflow-y: auto;
+    }
+    nav .logo { display: flex; align-items: center; gap: 8px; padding: 0 16px 20px; border-bottom: 1px solid var(--border); margin-bottom: 12px; }
+    nav .logo img { width: 28px; height: 28px; border-radius: 4px; background:#fff; }
+    nav .logo span { font-weight: 800; font-size: 14px; letter-spacing: .08em; }
+    nav .logo sub { font-size: 9px; color: var(--muted); display: block; }
+    nav a { display: block; padding: 5px 18px; color: var(--muted); text-decoration: none; font-size: 11px; }
+    nav a:hover, nav a.active { color: var(--accent); background: rgba(255,255,255,.04); }
+    nav .nav-section { padding: 10px 18px 3px; font-size: 9px; font-weight: 700; letter-spacing: .12em; color: #555; text-transform: uppercase; }
+    /* MAIN */
+    main { flex: 1; padding: 40px 52px; max-width: 900px; }
+    h1 { font-size: 28px; font-weight: 800; margin-bottom: 6px; }
+    h2 { font-size: 18px; font-weight: 700; margin: 40px 0 12px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+    h3 { font-size: 13px; font-weight: 700; margin: 22px 0 8px; color: var(--accent); }
+    p { margin-bottom: 12px; color: var(--text); }
+    ul, ol { margin: 0 0 12px 20px; }
+    li { margin-bottom: 4px; }
+    code {
+      font-family: var(--mono); font-size: 11px;
+      background: var(--code-bg); border: 1px solid var(--border);
+      padding: 1px 5px; border-radius: 3px; color: #e0e0e8;
+    }
+    pre {
+      background: var(--code-bg); border: 1px solid var(--border);
+      border-radius: 6px; padding: 14px 16px; overflow-x: auto;
+      font-family: var(--mono); font-size: 11px; line-height: 1.6;
+      margin-bottom: 16px; color: #d0d0e0;
+    }
+    pre .c { color: #6c6c7a; font-style: italic; }
+    pre .k { color: #ffffff; font-weight: 700; }
+    pre .v { color: #c0c0d0; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 18px; font-size: 11px; }
+    th { background: var(--surface); padding: 6px 10px; text-align: left; font-weight: 700; color: var(--muted); border: 1px solid var(--border); font-size: 10px; text-transform: uppercase; letter-spacing: .06em; }
+    td { padding: 6px 10px; border: 1px solid var(--border); vertical-align: top; }
+    td code { background: transparent; border: none; padding: 0; }
+    .chip { display: inline-block; padding: 2px 7px; border-radius: 3px; font-size: 10px; font-weight: 700; border: 1px solid var(--border); font-family: var(--mono); }
+    .tip { background: #181c18; border-left: 3px solid #ffffff; padding: 10px 14px; border-radius: 0 4px 4px 0; margin: 14px 0; font-size: 11px; }
+    .tip strong { color: #fff; }
+    kbd { background: #222228; border: 1px solid #444; border-radius: 3px; padding: 1px 5px; font-family: var(--mono); font-size: 10px; }
+    .badge-proto { display: inline-block; padding: 1px 6px; border-radius: 2px; font-family: var(--mono); font-size: 10px; font-weight: 700; border: 1px solid #555; }
+    section { margin-bottom: 32px; }
+  </style>
+</head>
+<body>
+<nav>
+  <div class="logo">
+    <img src="/assets/kuruta-logo.png" alt="Logo" />
+    <div><span>KURUTA IDS</span><sub>Manual de Usuario</sub></div>
+  </div>
+  <div class="nav-section">Inicio</div>
+  <a href="#intro">¿Qué es Kuruta IDS?</a>
+  <a href="#interfaz">Interfaz de usuario</a>
+  <a href="#captura">Captura de tráfico</a>
+  <div class="nav-section">Filtros</div>
+  <a href="#filtros-basicos">Filtros básicos</a>
+  <a href="#filtros-protocolo">Por protocolo</a>
+  <a href="#filtros-ip">Por IP / puerto</a>
+  <a href="#filtros-contenido">Por contenido</a>
+  <a href="#filtros-ids">IDS / Anomalías</a>
+  <a href="#filtros-combinados">Combinados (and / or)</a>
+  <div class="nav-section">Funciones</div>
+  <a href="#diseccion">Árbol de disección</a>
+  <a href="#hexdump">Volcado hexadecimal</a>
+  <a href="#streams">Seguir streams</a>
+  <a href="#estadisticas">Estadísticas</a>
+  <a href="#anomalias">Motor IDS</a>
+  <a href="#pcap">Importar / Exportar PCAP</a>
+  <a href="#simulate">Tráfico de prueba</a>
+  <div class="nav-section">Referencia</div>
+  <a href="#atajos">Atajos de teclado</a>
+  <a href="#sintaxis">Tabla de sintaxis</a>
+</nav>
+
+<main>
+  <h1>Kuruta IDS · Manual de Usuario</h1>
+  <p style="color:var(--muted); margin-bottom:32px;">Versión 0.3 · Sniffer de red, IDS heurístico y analizador de protocolos estilo Wireshark.</p>
+
+  <!-- INTRO -->
+  <section id="intro">
+    <h2>¿Qué es Kuruta IDS?</h2>
+    <p>Kuruta IDS es un analizador de red local con detección de intrusiones integrada. Captura paquetes directamente desde las interfaces de red del sistema (sin necesidad de instalar Npcap manualmente), los disecciona capa por capa, y aplica reglas heurísticas para detectar anomalías en tiempo real.</p>
+    <ul>
+      <li><strong>Sniffer completo</strong>: captura en vivo, filtros de visualización, árbol de disección, volcado hex.</li>
+      <li><strong>IDS heurístico</strong>: detección de escaneos de puertos, tunelización DNS, SYN+FIN inválido, ARP spoofing, y más.</li>
+      <li><strong>Sin drivers</strong>: en Windows sin Npcap usa raw sockets automáticamente.</li>
+      <li><strong>Importación PCAP</strong>: arrastra cualquier archivo <code>.pcap</code> para analizarlo.</li>
+      <li><strong>Auto-update</strong>: notifica cuando hay una nueva versión disponible.</li>
+    </ul>
+  </section>
+
+  <!-- INTERFAZ -->
+  <section id="interfaz">
+    <h2>Interfaz de usuario</h2>
+    <p>La interfaz está organizada como Wireshark:</p>
+    <table>
+      <tr><th>Zona</th><th>Descripción</th></tr>
+      <tr><td><strong>Barra de menú</strong></td><td>Archivo, Captura, Analizar, Estadísticas, IDS, Ayuda</td></tr>
+      <tr><td><strong>Barra de herramientas</strong></td><td>Botones rápidos: Iniciar, Detener, Reiniciar, PCAP, Simular tráfico</td></tr>
+      <tr><td><strong>Barra de filtro</strong></td><td>Campo de texto para filtros de visualización en tiempo real</td></tr>
+      <tr><td><strong>Panel 1 — Lista de paquetes</strong></td><td>Tabla con No., Tiempo, Origen, Destino, Protocolo, Longitud, Info</td></tr>
+      <tr><td><strong>Panel 2 — Árbol de disección</strong></td><td>Capas L2/L3/L4/L7 con todos los campos desplegables</td></tr>
+      <tr><td><strong>Panel 3 — Volcado hexadecimal</strong></td><td>Representación hex + ASCII del paquete completo</td></tr>
+      <tr><td><strong>Barra de estado</strong></td><td>Estado de captura, paquetes, anomalías, velocidad (pps)</td></tr>
+    </table>
+  </section>
+
+  <!-- CAPTURA -->
+  <section id="captura">
+    <h2>Captura de tráfico</h2>
+    <p>Al abrir la app la captura se inicia automáticamente en la primera interfaz disponible en modo promiscuo. Para cambiar la interfaz:</p>
+    <ol>
+      <li>Selecciona la interfaz en el desplegable <strong>NIC:</strong> de la barra de herramientas.</li>
+      <li>O ve a <strong>Captura → Opciones de interfaz y BPF...</strong> para configurar la interfaz, un filtro BPF de captura y el modo promiscuo.</li>
+      <li>Pulsa <strong>Iniciar Captura</strong>.</li>
+    </ol>
+    <div class="tip"><strong>Filtro BPF vs filtro de visualización</strong><br>
+    El <em>filtro BPF</em> se aplica en el kernel antes de que los paquetes entren en la app (reduce tráfico inútil). El <em>filtro de visualización</em> filtra los paquetes ya capturados en pantalla sin descartar ninguno del buffer.</div>
+  </section>
+
+  <!-- FILTROS BÁSICOS -->
+  <section id="filtros-basicos">
+    <h2>Filtros de visualización — Básicos</h2>
+    <p>Escribe el filtro en la barra superior y pulsa <kbd>Enter</kbd> o <strong>→ Aplicar</strong>. El borde cambia a blanco cuando el filtro es válido.</p>
+    <table>
+      <tr><th>Filtro</th><th>Descripción</th><th>Ejemplo</th></tr>
+      <tr><td><code>tcp</code></td><td>Solo paquetes TCP</td><td></td></tr>
+      <tr><td><code>udp</code></td><td>Solo paquetes UDP</td><td></td></tr>
+      <tr><td><code>arp</code></td><td>Solo tramas ARP (Address Resolution Protocol)</td><td></td></tr>
+      <tr><td><code>icmp</code></td><td>Solo mensajes ICMP (ping, unreachable, etc.)</td><td></td></tr>
+      <tr><td><code>dns</code></td><td>Consultas y respuestas DNS</td><td></td></tr>
+      <tr><td><code>http</code></td><td>Tráfico HTTP (puerto 80)</td><td></td></tr>
+      <tr><td><code>tls</code></td><td>Tráfico TLS/HTTPS cifrado</td><td></td></tr>
+      <tr><td><code>dhcp</code></td><td>Asignaciones DHCP de red</td><td></td></tr>
+      <tr><td><code>ssh</code></td><td>Conexiones SSH (puerto 22)</td><td></td></tr>
+      <tr><td><code>mdns</code></td><td>Multicast DNS (Bonjour/Avahi, puerto 5353)</td><td></td></tr>
+      <tr><td><code>ntp</code></td><td>Sincronización de tiempo NTP</td><td></td></tr>
+      <tr><td><code>ssdp</code></td><td>Descubrimiento de dispositivos UPnP</td><td></td></tr>
+    </table>
+  </section>
+
+  <!-- FILTROS POR PROTOCOLO -->
+  <section id="filtros-protocolo">
+    <h2>Filtros por protocolo con condiciones</h2>
+    <table>
+      <tr><th>Filtro</th><th>Descripción</th></tr>
+      <tr><td><code>tcp.port == 443</code></td><td>Tráfico TCP en el puerto 443 (HTTPS)</td></tr>
+      <tr><td><code>tcp.port == 80</code></td><td>Tráfico HTTP</td></tr>
+      <tr><td><code>tcp.port == 22</code></td><td>SSH</td></tr>
+      <tr><td><code>udp.port == 53</code></td><td>DNS sobre UDP</td></tr>
+      <tr><td><code>udp.port == 67</code></td><td>DHCP server</td></tr>
+      <tr><td><code>tcp.flags == SYN</code></td><td>Paquetes con flag SYN (inicio de conexión)</td></tr>
+      <tr><td><code>tcp.flags == RST</code></td><td>Resets TCP</td></tr>
+    </table>
+  </section>
+
+  <!-- FILTROS POR IP -->
+  <section id="filtros-ip">
+    <h2>Filtros por dirección IP y puerto</h2>
+    <table>
+      <tr><th>Filtro</th><th>Descripción</th></tr>
+      <tr><td><code>ip.addr == 192.168.1.1</code></td><td>Paquetes con origen O destino en esa IP</td></tr>
+      <tr><td><code>ip.src == 10.0.0.5</code></td><td>Solo paquetes con ese origen</td></tr>
+      <tr><td><code>ip.dst == 8.8.8.8</code></td><td>Solo paquetes hacia ese destino</td></tr>
+      <tr><td><code>tcp.port == 443</code></td><td>Puerto TCP 443 (origen o destino)</td></tr>
+      <tr><td><code>tcp.dport == 80</code></td><td>Paquetes destinados al puerto 80</td></tr>
+    </table>
+    <div class="tip"><strong>Nota:</strong> Los filtros de IP también coinciden con el formato <code>ip:port</code> que aparece en la columna Origen/Destino. Por ejemplo <code>ip.addr == 192.168.1.100</code> matcheará tanto <code>192.168.1.100</code> como <code>192.168.1.100:443</code>.</div>
+  </section>
+
+  <!-- FILTROS POR CONTENIDO -->
+  <section id="filtros-contenido">
+    <h2>Filtros por contenido del paquete</h2>
+    <table>
+      <tr><th>Filtro</th><th>Descripción</th></tr>
+      <tr><td><code>frame contains "GET"</code></td><td>Paquetes cuya información contiene el texto "GET"</td></tr>
+      <tr><td><code>frame contains "POST"</code></td><td>Peticiones HTTP POST</td></tr>
+      <tr><td><code>frame contains "password"</code></td><td>Tráfico que menciona "password" en claro</td></tr>
+      <tr><td><code>frame contains "SSH"</code></td><td>Banners SSH</td></tr>
+      <tr><td><code>dns.qname contains "google"</code></td><td>Consultas DNS que incluyen "google"</td></tr>
+    </table>
+    <pre><span class="c"># Buscar credenciales en texto claro</span>
+frame contains "Authorization"
+frame contains "Basic "
+frame contains "Bearer "</pre>
+  </section>
+
+  <!-- FILTROS IDS -->
+  <section id="filtros-ids">
+    <h2>Filtros IDS — Anomalías detectadas</h2>
+    <table>
+      <tr><th>Filtro</th><th>Descripción</th></tr>
+      <tr><td><code>flagged</code></td><td>Solo paquetes marcados con una anomalía IDS (fila con borde blanco)</td></tr>
+      <tr><td><code>anomaly</code></td><td>Sinónimo de <code>flagged</code></td></tr>
+    </table>
+    <p>Las anomalías que detecta el motor IDS de Kuruta incluyen:</p>
+    <table>
+      <tr><th>Tipo</th><th>Descripción</th><th>Severidad</th></tr>
+      <tr><td><code>vertical-port-scan</code></td><td>Un host escanea &gt;15 puertos distintos en &lt;5s</td><td>HIGH</td></tr>
+      <tr><td><code>dns-tunneling</code></td><td>Nombres DNS con entropía anómala (datos ocultos en DNS)</td><td>HIGH</td></tr>
+      <tr><td><code>invalid-tcp-flags</code></td><td>Combinaciones inválidas: SYN+FIN, SYN+RST+FIN (evasión)</td><td>MEDIUM</td></tr>
+      <tr><td><code>tcp-rst-storm</code></td><td>Tormenta de resets TCP (&gt;20 RST/s del mismo host)</td><td>MEDIUM</td></tr>
+      <tr><td><code>arp-conflict</code></td><td>Dos MACs distintos anuncian la misma IP (ARP poisoning)</td><td>HIGH</td></tr>
+      <tr><td><code>arp-storm</code></td><td>Más de 40 solicitudes ARP en 10 segundos (sweep)</td><td>LOW</td></tr>
+    </table>
+  </section>
+
+  <!-- FILTROS COMBINADOS -->
+  <section id="filtros-combinados">
+    <h2>Filtros combinados</h2>
+    <p>Usa <code>or</code> y <code>and</code> para combinar condiciones:</p>
+    <pre><span class="c"># HTTP o TLS (todo el tráfico web)</span>
+http or tls
+
+<span class="c"># DNS hacia Google</span>
+dns and ip.dst == 8.8.8.8
+
+<span class="c"># Paquetes TCP de un host específico</span>
+tcp and ip.addr == 192.168.1.5
+
+<span class="c"># Solo anomalías de escaneo de puertos</span>
+flagged and tcp
+
+<span class="c"># Tráfico web y anomalías al mismo tiempo</span>
+http or flagged
+
+<span class="c"># DNS o DHCP (descubrimiento de red)</span>
+dns or dhcp or arp
+
+<span class="c"># Excluir tráfico local (solo internet)</span>
+tcp and ip.dst == 8.8.8.8</pre>
+
+    <div class="tip"><strong>Tip:</strong> Haz doble clic en un paquete en la tabla para abrir directamente el <em>Seguidor de Stream</em> si ese paquete tiene un stream TCP/UDP asociado.</div>
+  </section>
+
+  <!-- DISECCIÓN -->
+  <section id="diseccion">
+    <h2>Árbol de disección de protocolos</h2>
+    <p>Al hacer clic en un paquete se muestra su estructura de capas en el Panel 2:</p>
+    <ul>
+      <li><strong>Frame</strong>: metadatos de la captura (número, tiempo, longitud)</li>
+      <li><strong>Ethernet II</strong>: MACs de origen y destino, EtherType</li>
+      <li><strong>Internet Protocol</strong>: IPs, TTL, protocolo, checksum</li>
+      <li><strong>TCP / UDP</strong>: puertos, flags, número de secuencia, ACK</li>
+      <li><strong>HTTP / DNS / TLS / DHCP / ICMP</strong>: campos de aplicación</li>
+    </ul>
+    <p>Haz clic en cualquier capa (<code>▼</code>) para expandir o colapsar sus campos.</p>
+  </section>
+
+  <!-- HEX DUMP -->
+  <section id="hexdump">
+    <h2>Volcado hexadecimal</h2>
+    <p>El Panel 3 muestra el contenido en crudo del paquete en formato hex + ASCII, igual que Wireshark. El formato es:</p>
+    <pre>0000  ff ff ff ff ff ff 00 11  22 33 44 55 08 06 00 01  ........ "3DU....
+0010  08 00 06 04 00 01 00 11  22 33 44 55 c0 a8 01 01  ........ "3DU....</pre>
+    <p>Copia el volcado completo con el botón <strong>Copiar Hex</strong>.</p>
+  </section>
+
+  <!-- STREAMS -->
+  <section id="streams">
+    <h2>Seguir streams TCP / UDP</h2>
+    <p>Para reconstruir la conversación completa entre dos hosts:</p>
+    <ol>
+      <li>Selecciona cualquier paquete TCP o UDP.</li>
+      <li>Haz clic en <strong>Seguir Stream</strong> (botón en la barra del paquete seleccionado), o doble clic en la fila, o ve a <strong>Analizar → Seguir TCP/UDP Stream</strong>.</li>
+      <li>Se abre una ventana con todo el intercambio reconstruido en texto.</li>
+    </ol>
+    <div class="tip"><strong>Útil para:</strong> Ver solicitudes HTTP completas, comandos FTP, handshakes SSH, respuestas de APIs, etc.</div>
+  </section>
+
+  <!-- ESTADÍSTICAS -->
+  <section id="estadisticas">
+    <h2>Estadísticas y flujos</h2>
+    <p>La pestaña <strong>Estadísticas &amp; Flujos</strong> muestra en tiempo real:</p>
+    <ul>
+      <li><strong>Métricas globales</strong>: paquetes totales, bytes, paquetes/segundo, caídos.</li>
+      <li><strong>Jerarquía de protocolos</strong>: barra horizontal proporcional a la cantidad de cada protocolo.</li>
+      <li><strong>Top Conversaciones</strong>: los 30 pares A↔B con más tráfico (protocolo, IPs, paquetes, bytes).</li>
+      <li><strong>Top Endpoints</strong>: las 30 IPs más activas.</li>
+    </ul>
+  </section>
+
+  <!-- ANOMALÍAS IDS -->
+  <section id="anomalias">
+    <h2>Motor IDS — Detección de anomalías</h2>
+    <p>La pestaña <strong>Anomalías IDS</strong> lista todos los eventos detectados con:</p>
+    <ul>
+      <li>Severidad: <strong>HIGH</strong> / MEDIUM / LOW / INFO</li>
+      <li>Tipo de anomalía y descripción</li>
+      <li>IP de origen involucrada</li>
+      <li>Enlace directo al paquete que la disparó</li>
+    </ul>
+    <p>Filtra por severidad con las pastillas de la parte superior. Los paquetes relacionados aparecen con una barra blanca al lado izquierdo en la tabla (<code>⚠️</code>).</p>
+    <p>Para probar la detección sin tráfico real, usa:</p>
+    <pre>Barra de herramientas → ⚡ Tráfico de Prueba IDS</pre>
+    <p>Esto inyecta tráfico sintético que activa todos los detectores: escaneo de puertos, DNS tunneling, ARP spoofing, flags TCP inválidos.</p>
+  </section>
+
+  <!-- PCAP -->
+  <section id="pcap">
+    <h2>Importar y exportar PCAP</h2>
+    <h3>Importar</h3>
+    <ul>
+      <li><strong>Arrastrar y soltar</strong>: arrastra un archivo <code>.pcap</code>, <code>.pcapng</code> o <code>.cap</code> sobre la ventana.</li>
+      <li><strong>Menú</strong>: <em>Archivo → Abrir archivo PCAP...</em> o el botón <strong>📁 Abrir PCAP</strong>.</li>
+    </ul>
+    <h3>Exportar</h3>
+    <ul>
+      <li><em>Archivo → Guardar PCAP...</em> o el botón <strong>💾 Guardar PCAP</strong>.</li>
+      <li>Descarga el buffer actual como <code>kuruta-capture.pcap</code> compatible con Wireshark.</li>
+    </ul>
+    <div class="tip"><strong>Compatibilidad:</strong> Los archivos PCAP exportados son 100% compatibles con Wireshark, tcpdump, Zeek, Suricata y cualquier herramienta estándar.</div>
+  </section>
+
+  <!-- SIMULATE -->
+  <section id="simulate">
+    <h2>Tráfico de prueba IDS (modo offline)</h2>
+    <p>Si no tienes Npcap o quieres probar la detección sin tráfico real, usa el generador integrado:</p>
+    <pre>⚡ Tráfico de Prueba IDS  (barra de herramientas o IDS / Detección → Generar tráfico)</pre>
+    <p>Genera en memoria más de 35 paquetes reales que incluyen:</p>
+    <table>
+      <tr><th>Paquete generado</th><th>Anomalía que activa</th></tr>
+      <tr><td>ARP announcement</td><td>—</td></tr>
+      <tr><td>DNS query + response (kuruta.local)</td><td>—</td></tr>
+      <tr><td>HTTP GET request</td><td>—</td></tr>
+      <tr><td>Escaneo vertical de 32 puertos (SYN)</td><td><code>vertical-port-scan</code></td></tr>
+      <tr><td>DNS query con nombre de alta entropía</td><td><code>dns-tunneling</code></td></tr>
+      <tr><td>Paquete TCP con flags SYN+FIN</td><td><code>invalid-tcp-flags</code></td></tr>
+      <tr><td>ARP is-at de MAC diferente para 192.168.1.1</td><td><code>arp-conflict</code></td></tr>
+    </table>
+  </section>
+
+  <!-- ATAJOS -->
+  <section id="atajos">
+    <h2>Atajos de teclado</h2>
+    <table>
+      <tr><th>Atajo</th><th>Acción</th></tr>
+      <tr><td><kbd>↑</kbd> / <kbd>↓</kbd></td><td>Navegar entre paquetes en la lista</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>E</kbd></td><td>Iniciar captura</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>O</kbd></td><td>Abrir archivo PCAP</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>S</kbd></td><td>Guardar captura como PCAP</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>W</kbd></td><td>Limpiar buffer de captura</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>C</kbd></td><td>Copiar resumen del paquete seleccionado</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>+</kbd></td><td>Aumentar tamaño de fuente</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>-</kbd></td><td>Reducir tamaño de fuente</td></tr>
+      <tr><td><kbd>Esc</kbd></td><td>Cerrar cualquier ventana modal</td></tr>
+    </table>
+  </section>
+
+  <!-- REFERENCIA COMPLETA -->
+  <section id="sintaxis">
+    <h2>Tabla de referencia completa de filtros</h2>
+    <table>
+      <tr><th>Expresión</th><th>Coincide con...</th></tr>
+      <tr><td><code>tcp</code></td><td>Todos los paquetes TCP</td></tr>
+      <tr><td><code>udp</code></td><td>Todos los paquetes UDP</td></tr>
+      <tr><td><code>arp</code></td><td>Tramas ARP</td></tr>
+      <tr><td><code>icmp</code></td><td>Mensajes ICMP (ping, etc.)</td></tr>
+      <tr><td><code>icmpv6</code></td><td>ICMPv6 (neighbour discovery IPv6)</td></tr>
+      <tr><td><code>dns</code></td><td>Tráfico DNS (UDP/TCP 53)</td></tr>
+      <tr><td><code>http</code></td><td>Paquetes con payload HTTP</td></tr>
+      <tr><td><code>tls</code></td><td>TLS/HTTPS</td></tr>
+      <tr><td><code>dhcp</code></td><td>DHCP/BOOTP</td></tr>
+      <tr><td><code>ssh</code></td><td>Tráfico puerto 22</td></tr>
+      <tr><td><code>mdns</code></td><td>Multicast DNS (5353)</td></tr>
+      <tr><td><code>ntp</code></td><td>Network Time Protocol (123)</td></tr>
+      <tr><td><code>ssdp</code></td><td>UPnP discovery (1900)</td></tr>
+      <tr><td><code>llmnr</code></td><td>Link-Local Multicast Name Resolution</td></tr>
+      <tr><td><code>ip.addr == X.X.X.X</code></td><td>IP de origen o destino</td></tr>
+      <tr><td><code>ip.src == X.X.X.X</code></td><td>IP de origen</td></tr>
+      <tr><td><code>ip.dst == X.X.X.X</code></td><td>IP de destino</td></tr>
+      <tr><td><code>tcp.port == N</code></td><td>Puerto TCP (origen o destino)</td></tr>
+      <tr><td><code>tcp.dport == N</code></td><td>Puerto TCP destino</td></tr>
+      <tr><td><code>udp.port == N</code></td><td>Puerto UDP (origen o destino)</td></tr>
+      <tr><td><code>frame contains "texto"</code></td><td>Paquetes cuya info contiene el texto</td></tr>
+      <tr><td><code>dns.qname contains "dominio"</code></td><td>Consultas DNS con ese dominio</td></tr>
+      <tr><td><code>flagged</code></td><td>Paquetes marcados con anomalía IDS</td></tr>
+      <tr><td><code>anomaly</code></td><td>Sinónimo de <code>flagged</code></td></tr>
+      <tr><td><code>A or B</code></td><td>Paquetes que cumplan A o B</td></tr>
+      <tr><td><code>A and B</code></td><td>Paquetes que cumplan A y B</td></tr>
+    </table>
+  </section>
+
+</main>
+</body>
+</html>

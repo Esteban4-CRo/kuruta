@@ -1,43 +1,68 @@
-name: Kuruta Release
+name: Kuruta Auto Release
 
 on:
   push:
-    tags:
-      - "v*"
-  workflow_dispatch:
-    inputs:
-      tag:
-        description: "Tag de versión a publicar (ej: v0.3.0)"
-        required: true
-        default: "v0.3.0"
+    branches: [main]
 
 permissions:
   contents: write
 
 jobs:
-  # When triggered manually, create + push the tag first
-  create-tag:
-    name: Create tag (manual dispatch only)
+  auto-release:
+    name: Auto-tag and publish release
     runs-on: ubuntu-latest
-    if: github.event_name == 'workflow_dispatch'
+    outputs:
+      new_tag: ${{ steps.bump.outputs.new_tag }}
+      skip: ${{ steps.bump.outputs.skip }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
       - name: Configure git identity
         run: |
           git config user.name  "Esteban4-CRo"
           git config user.email "juancampinoc@gmail.com"
-      - name: Create and push tag
+
+      - name: Compute next patch version
+        id: bump
         run: |
-          TAG="${{ github.event.inputs.tag }}"
-          git tag "$TAG" || echo "Tag already exists, continuing"
-          git push origin "$TAG" || echo "Tag already pushed"
+          # Skip if the commit message starts with 'chore(release)' to avoid loops
+          MSG=$(git log -1 --pretty=%s)
+          if echo "$MSG" | grep -q "^chore(release)"; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "skip=false" >> "$GITHUB_OUTPUT"
+
+          # Get latest tag; default to v0.0.0 if none
+          LATEST=$(git tag --sort=-version:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -1)
+          if [ -z "$LATEST" ]; then
+            LATEST="v0.0.0"
+          fi
+
+          # Strip leading 'v' and split
+          VER=${LATEST#v}
+          MAJOR=$(echo $VER | cut -d. -f1)
+          MINOR=$(echo $VER | cut -d. -f2)
+          PATCH=$(echo $VER | cut -d. -f3)
+
+          # Increment patch
+          PATCH=$((PATCH + 1))
+          NEW_TAG="v${MAJOR}.${MINOR}.${PATCH}"
+          echo "new_tag=$NEW_TAG" >> "$GITHUB_OUTPUT"
+          echo "Latest: $LATEST  →  New: $NEW_TAG"
+
+      - name: Create and push tag
+        if: steps.bump.outputs.skip == 'false'
+        run: |
+          git tag "${{ steps.bump.outputs.new_tag }}"
+          git push origin "${{ steps.bump.outputs.new_tag }}"
 
   build:
     name: Build ${{ matrix.platform }} executables
-    needs: [create-tag]
-    if: always() && (needs.create-tag.result == 'success' || needs.create-tag.result == 'skipped')
+    needs: auto-release
+    if: needs.auto-release.outputs.skip == 'false'
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -50,21 +75,26 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          # Fetch all tags so the build picks up the new one
           fetch-depth: 0
-          ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || github.ref }}
+          ref: ${{ needs.auto-release.outputs.new_tag }}
+
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+
       - name: Install packet capture libraries
         if: matrix.platform == 'linux'
         run: sudo apt-get update && sudo apt-get install -y libpcap-dev
-      - name: Install Python service and bundler
+
+      - name: Install Python dependencies
         run: python -m pip install -e ".[dev]"
-      - name: Run backend tests
+
+      - name: Run tests
         run: python -m pytest -q
-      - name: Build native executables
+
+      - name: Build executable
         run: python scripts/build_release.py --platform ${{ matrix.platform }}
+
       - uses: actions/upload-artifact@v4
         with:
           name: kuruta-${{ matrix.platform }}-x64
@@ -75,33 +105,27 @@ jobs:
           retention-days: 7
 
   publish:
-    name: Publish GitHub release
-    needs: build
+    name: Publish GitHub Release
+    needs: [auto-release, build]
+    if: needs.auto-release.outputs.skip == 'false'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+
       - uses: actions/download-artifact@v4
         with:
           pattern: kuruta-*-x64
           path: release-files
           merge-multiple: true
-      - name: Include project logo and license
+
+      - name: Include logo and license
         run: |
           cp assets/kuruta-logo.png release-files/kuruta-logo.png || true
           cp LICENSE release-files/LICENSE-MIT.txt || true
-      - name: Determine tag name
-        id: tagname
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "TAG=${{ github.event.inputs.tag }}" >> "$GITHUB_OUTPUT"
-          else
-            echo "TAG=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
-          fi
+
       - uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.tagname.outputs.TAG }}
+          tag_name: ${{ needs.auto-release.outputs.new_tag }}
+          name: "Kuruta IDS ${{ needs.auto-release.outputs.new_tag }}"
           generate_release_notes: true
-          files: |
-            release-files/*
+          files: release-files/*

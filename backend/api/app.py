@@ -394,6 +394,10 @@ def create_app(
         def console() -> FileResponse:
             return FileResponse(frontend_dir / "index.html")
 
+        @app.get("/manual")
+        def user_manual() -> FileResponse:
+            return FileResponse(frontend_dir / "manual.html")
+
     if assets_dir.is_dir():
         app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
 

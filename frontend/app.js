@@ -669,7 +669,7 @@ function setupEvents() {
 // AUTO-UPDATE SYSTEM
 // ==========================================================================
 const updateState = {
-  info: null,        // UpdateInfo from API
+  info: null,
   dismissed: false,
   applying: false,
 };
@@ -681,34 +681,24 @@ async function checkForUpdate() {
     if (info.has_update && !updateState.dismissed) {
       showUpdateBanner(info);
     }
-  } catch (_err) {
-    // Silent — no network or GitHub unreachable
-  }
+  } catch (_err) { /* silent */ }
 }
 
 function showUpdateBanner(info) {
-  const banner = $("updateBanner");
   $("updateBannerText").textContent =
     `Nueva versión disponible: v${info.latest}  (tienes v${info.current})`;
-
-  // Show first line of release notes as subtitle
-  const firstLine = (info.release_notes || "")
-    .split("\n")
-    .filter(Boolean)[0] || "";
+  const firstLine = (info.release_notes || "").split("\n").filter(Boolean)[0] || "";
   $("updateBannerNotes").textContent = firstLine ? `· ${firstLine}` : "";
-
-  banner.classList.remove("hidden");
+  $("updateBanner").classList.remove("hidden");
 }
 
 async function applyUpdate() {
   if (updateState.applying || !updateState.info?.download_url) return;
   updateState.applying = true;
-
   const btn = $("btnUpdate");
   btn.disabled = true;
   btn.textContent = "⏬ Descargando...";
   $("sbErrorText").textContent = "Descargando actualización, espera...";
-
   try {
     await api("/api/v1/update/apply", {
       method: "POST",
@@ -716,8 +706,7 @@ async function applyUpdate() {
       body: JSON.stringify({ download_url: updateState.info.download_url }),
     });
     btn.textContent = "✓ Reiniciando...";
-    $("sbErrorText").textContent = "Actualización aplicada. La app se reiniciará en segundos.";
-    // Reconnect after delay
+    $("sbErrorText").textContent = "Actualización aplicada. Reiniciando en segundos...";
     setTimeout(() => location.reload(), 4000);
   } catch (err) {
     btn.disabled = false;
@@ -735,23 +724,54 @@ function setupUpdateEvents() {
   });
 }
 
-// INITIAL BOOT
+// ==========================================================================
+// INITIAL BOOT — sin diálogos, captura automática inmediata
+// ==========================================================================
 async function boot() {
   setupEvents();
   setupUpdateEvents();
-  await loadInterfaces();
-  await refreshStatus();
-  await applyFilter();
+
+  // 1. Cargar interfaces disponibles
+  await loadInterfaces().catch(() => {});
+
+  // 2. Revisar estado actual
+  const status = await refreshStatus().catch(() => ({ running: false }));
+
+  // 3. Auto-iniciar captura en primera interfaz si no está corriendo
+  if (!status.running) {
+    const firstIface = $("ifaceSelect").value;
+    if (firstIface) {
+      startCapture(firstIface, "", true).catch((err) => {
+        // Si falla (permisos, sin driver), silenciar y mostrar aviso
+        $("sbErrorText").textContent =
+          `Sin acceso de captura en vivo: ${err.message} — Usa "⚡ Tráfico de Prueba IDS" o arrastra un .pcap`;
+      });
+    }
+  }
+
+  // 4. Cargar paquetes existentes en el buffer
+  await applyFilter("").catch(() => {});
+
+  // 5. Conectar WebSocket para paquetes en tiempo real
   connectLive();
 
-  // Check for updates 5 seconds after boot, then every 30 minutes
-  setTimeout(() => checkForUpdate(), 5000);
+  // 6. Check updates después de 8s, luego cada 30 min
+  setTimeout(() => checkForUpdate(), 8000);
   setInterval(() => checkForUpdate(), 30 * 60 * 1000);
 
+  // 7. Refresh de estado cada 2s
   setInterval(() => {
     refreshStatus().catch(() => {});
     if (state.view === "stats") loadStats().catch(() => {});
   }, 2000);
 }
 
-boot().catch(showError);
+boot().catch((err) => {
+  // Mostrar error en status bar sin crash
+  const sb = document.getElementById("sbErrorText");
+  if (sb) sb.textContent = `Error de inicio: ${err.message}`;
+});
+
+
+
+

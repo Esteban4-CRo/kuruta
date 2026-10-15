@@ -396,7 +396,8 @@ body {
 .view-panel {
   display: flex;
   flex-direction: column;
-  flex: 1;
+  flex: 1 1 0;
+  min-height: 0;          /* KEY: allows children to shrink below content size */
   overflow: hidden;
   background: var(--bg-pane);
 }
@@ -407,10 +408,13 @@ body {
 
 /* PANE 1: TABLA DE PAQUETES */
 .packet-list-pane {
-  flex: 1 1 52%;
+  flex: 1 1 55%;
+  min-height: 0;          /* KEY: without this flex won't shrink */
   overflow-y: auto;
-  border-bottom: 1px solid var(--border-dim);
+  overflow-x: hidden;
+  border-bottom: 2px solid var(--border-strong);
   background: var(--bg-pane);
+  position: relative;
 }
 
 .ws-table {
@@ -548,11 +552,13 @@ body {
 
 /* PANES 2 Y 3 (DETALLE Y HEX) */
 .details-hex-split {
-  flex: 1 1 48%;
+  flex: 0 0 42%;          /* fixed portion so it doesn't push out table */
+  min-height: 0;
   display: grid;
   grid-template-columns: 1fr 1fr;
   overflow: hidden;
   background: var(--bg-pane);
+  border-top: 1px solid var(--border-strong);
 }
 
 .tree-pane, .hex-pane {
