@@ -22,11 +22,15 @@ def run(command: list[str]) -> None:
 
 
 def application_icon() -> Path:
-    """Rasterize the official logo into a Windows .ico for the frozen app."""
-    DIST.mkdir(parents=True, exist_ok=True)
-    icon_path = DIST / "kuruta.ico"
-    with Image.open(ROOT / "assets" / "kuruta-logo.png") as logo:
-        logo.save(icon_path, format="ICO", sizes=[(16, 16), (32, 32), (48, 48), (256, 256)])
+    """Return the official Windows .ico path, creating it from the logo if missing."""
+    icon_path = ROOT / "assets" / "kuruta-logo.ico"
+    if not icon_path.is_file():
+        with Image.open(ROOT / "assets" / "kuruta-logo.png") as logo:
+            logo.save(
+                icon_path,
+                format="ICO",
+                sizes=[(16, 16), (24, 24), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256)],
+            )
     return icon_path
 
 
