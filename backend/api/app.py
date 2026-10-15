@@ -324,6 +324,22 @@ def create_app(
             headers={"Content-Disposition": "attachment; filename=kuruta-capture.pcap"},
         )
 
+    @app.post("/api/v1/sniffer/simulate")
+    def sniffer_simulate(request: Request) -> dict[str, object]:
+        packets = request.app.state.capture.simulate_traffic()
+        return {"simulated": len(packets)}
+
+    @app.post("/api/v1/sniffer/import-pcap")
+    async def sniffer_import(request: Request) -> dict[str, object]:
+        body = await request.body()
+        if not body:
+            raise HTTPException(status_code=400, detail="Empty PCAP payload.")
+        try:
+            count = request.app.state.capture.import_pcap(body)
+            return {"imported": count}
+        except Exception as error:
+            raise HTTPException(status_code=400, detail=f"Failed to parse PCAP: {error}") from error
+
     @app.websocket("/api/v1/sniffer/live")
     async def sniffer_live(websocket: WebSocket) -> None:
         await websocket.accept()

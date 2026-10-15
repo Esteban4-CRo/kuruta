@@ -285,11 +285,121 @@ class CaptureEngine:
         finally:
             path.unlink(missing_ok=True)
 
+    def import_pcap(self, pcap_bytes: bytes) -> int:
+        """Import packets from an uploaded PCAP file."""
+        from scapy.utils import rdpcap
+        with tempfile.NamedTemporaryFile(suffix=".pcap", delete=False) as f:
+            f.write(pcap_bytes)
+            path = Path(f.name)
+        try:
+            packets = rdpcap(str(path))
+            for pkt in packets:
+                self.ingest_packet(pkt)
+            return len(packets)
+        finally:
+            path.unlink(missing_ok=True)
+
+    def simulate_traffic(self) -> list[StoredPacket]:
+        """Generate realistic packets and IDS anomalies without any external drivers."""
+        import time
+        from scapy.layers.dns import DNS, DNSQR, DNSRR
+        from scapy.layers.inet import ICMP, IP, TCP, UDP
+        from scapy.layers.l2 import ARP, Ether
+        from scapy.packet import Raw
+
+        generated: list[StoredPacket] = []
+        now = time.time()
+
+        # 1. ARP announcement
+        p1 = Ether(src="00:11:22:33:44:55", dst="ff:ff:ff:ff:ff:ff") / ARP(
+            op=1, psrc="192.168.1.1", pdst="192.168.1.254", hwsrc="00:11:22:33:44:55"
+        )
+        p1.time = now
+        generated.append(self.ingest_packet(p1))
+
+        # 2. DNS query & response
+        p2 = Ether() / IP(src="192.168.1.15", dst="1.1.1.1") / UDP(sport=54123, dport=53) / DNS(
+            id=0x1234, qd=DNSQR(qname="kuruta.local")
+        )
+        p2.time = now + 0.01
+        generated.append(self.ingest_packet(p2))
+
+        p3 = Ether() / IP(src="1.1.1.1", dst="192.168.1.15") / UDP(sport=53, dport=54123) / DNS(
+            id=0x1234, qr=1, qd=DNSQR(qname="kuruta.local"), an=DNSRR(rrname="kuruta.local", rdata="192.168.1.1")
+        )
+        p3.time = now + 0.02
+        generated.append(self.ingest_packet(p3))
+
+        # 3. HTTP GET request & response
+        p4 = Ether() / IP(src="192.168.1.15", dst="192.168.1.1") / TCP(sport=51234, dport=80, flags="PA") / Raw(
+            load=b"GET /api/status HTTP/1.1\r\nHost: kuruta.local\r\nUser-Agent: KurutaClient/1.0\r\n\r\n"
+        )
+        p4.time = now + 0.03
+        generated.append(self.ingest_packet(p4))
+
+        # 4. Vertical port scan (triggers vertical-port-scan anomaly!)
+        scanner_ip = "192.168.1.88"
+        target_ip = "192.168.1.1"
+        for port in [21, 22, 23, 25, 53, 80, 110, 135, 139, 143, 443, 445, 993, 995, 1433, 1521, 3306, 3389, 5432, 5900, 6379, 8080, 8443, 8888, 9000, 9200, 27017, 5000, 8000, 8081, 8848, 10000]:
+            scan_pkt = Ether() / IP(src=scanner_ip, dst=target_ip) / TCP(sport=49152, dport=port, flags="S")
+            scan_pkt.time = now + 0.05
+            generated.append(self.ingest_packet(scan_pkt))
+
+        # 5. DNS Tunneling query (triggers dns-tunneling anomaly via high entropy!)
+        p_tunnel = Ether() / IP(src="192.168.1.99", dst="8.8.8.8") / UDP(sport=61234, dport=53) / DNS(
+            id=0xABCD, qd=DNSQR(qname="a7f9b2c3d4e5f67890123456789abcdef0.exfil.domain.com")
+        )
+        p_tunnel.time = now + 0.1
+        generated.append(self.ingest_packet(p_tunnel))
+
+        # 6. Invalid TCP flags SYN+FIN (triggers invalid-tcp-flags anomaly!)
+        p_synfin = Ether() / IP(src="192.168.1.88", dst=target_ip) / TCP(sport=49153, dport=80, flags="SF")
+        p_synfin.time = now + 0.15
+        generated.append(self.ingest_packet(p_synfin))
+
+        # 7. ARP Conflict (triggers arp-conflict anomaly!)
+        p_arp_spoof = Ether(src="aa:bb:cc:dd:ee:ff") / ARP(
+            op=2, psrc="192.168.1.1", hwsrc="aa:bb:cc:dd:ee:ff"
+        )
+        p_arp_spoof.time = now + 0.2
+        generated.append(self.ingest_packet(p_arp_spoof))
+
+        return generated
+
     def detector(self) -> AnomalyDetector:
         return self._detector
 
     def set_on_packet(self, callback: OnPacket | None) -> None:
         self._on_packet = callback
+
+    def _fallback_raw_socket_loop(self) -> None:
+        """Driverless IP packet capture on Windows using Winsock SIO_RCVALL."""
+        from scapy.layers.inet import IP
+        local_ip = "127.0.0.1"
+        try:
+            local_ip = socket.gethostbyname(socket.gethostname())
+        except Exception:
+            pass
+        sock = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_IP)
+        try:
+            sock.bind((local_ip, 0))
+            sock.setsockopt(socket.IPPROTO_IP, socket.IP_HDRINCL, 1)
+            sock.ioctl(socket.SIO_RCVALL, socket.RCVALL_ON)
+            sock.settimeout(0.5)
+            while not self._stop.is_set():
+                try:
+                    data = sock.recv(65535)
+                    if data:
+                        pkt = IP(data)
+                        self.ingest_packet(pkt)
+                except socket.timeout:
+                    continue
+        finally:
+            try:
+                sock.ioctl(socket.SIO_RCVALL, socket.RCVALL_OFF)
+            except Exception:
+                pass
+            sock.close()
 
     def _sniff_loop(self) -> None:
         try:
@@ -304,8 +414,20 @@ class CaptureEngine:
                     stop_filter=lambda _frame: self._stop.is_set(),
                 )
         except Exception as error:
+            # Fallback for Windows if Npcap is missing
+            if os.name == "nt" and not self._stop.is_set():
+                try:
+                    self._fallback_raw_socket_loop()
+                    return
+                except Exception as fallback_err:
+                    error_msg = f"{error} (Fallback Winsock: {fallback_err})"
+                else:
+                    return
+            else:
+                error_msg = str(error)
+
             with self._lock:
-                self._error = str(error)
+                self._error = error_msg
                 self._running = False
             self._stop.set()
         else:

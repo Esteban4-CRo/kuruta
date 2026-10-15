@@ -143,3 +143,29 @@ def test_filter_flagged_and_protocols() -> None:
     assert compile_display_filter("anomaly")(syn) is True
     syn.summary.flagged = False
     assert compile_display_filter("flagged")(syn) is False
+
+
+def test_simulate_traffic_generates_anomalies() -> None:
+    session = CaptureEngine(HOST)
+    simulated = session.simulate_traffic()
+    assert len(simulated) > 5
+    result = session.list_packets()
+    assert result["captured"] >= len(simulated)
+    # Check that anomalies were flagged
+    assert any(pkt["flagged"] for pkt in result["packets"])
+
+
+def test_import_pcap_roundtrip() -> None:
+    session = CaptureEngine(HOST)
+    session.ingest_packet(Ether() / IP(src="10.0.0.8", dst="10.0.0.1") / TCP(sport=1234, dport=80, flags="S"))
+    pcap_data = session.export_pcap()
+    assert isinstance(pcap_data, bytes)
+    assert len(pcap_data) > 24
+
+    new_session = CaptureEngine(HOST)
+    count = new_session.import_pcap(pcap_data)
+    assert count >= 1
+    assert new_session.list_packets()["packets"][0]["protocol"] == "TCP"
+
+
+
