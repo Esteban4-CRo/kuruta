@@ -319,7 +319,7 @@ def create_app(
     @app.get("/api/v1/sniffer/packets")
     def sniffer_packets(
         request: Request,
-        limit: Annotated[int, Query(ge=1, le=1000)] = 200,
+        limit: Annotated[int, Query(ge=1, le=5000)] = 500,
         after: Annotated[int, Query(ge=0)] = 0,
         display_filter: str = "",
     ) -> dict[str, object]:

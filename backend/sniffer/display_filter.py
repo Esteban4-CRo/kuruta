@@ -1,36 +1,46 @@
-"""Small display-filter language inspired by Wireshark's most used tokens."""
+"""Advanced display-filter compiler supporting Wireshark-like boolean logic,
+nested parentheses, CIDR subnets, port matching, payload inspection, and TCP flags.
+"""
 
 from __future__ import annotations
 
 import ipaddress
 import re
 from collections.abc import Callable
+from typing import Any
 
 from backend.sniffer.models import StoredPacket
 
 Predicate = Callable[[StoredPacket], bool]
 
-_ATOM = re.compile(
+
+# ---------------------------------------------------------------------------
+# Lexer & AST
+# ---------------------------------------------------------------------------
+
+_TOKEN_RE = re.compile(
     r"""
-    ^(?:
-        ip\.addr\s*==\s*(?P<ipaddr>\S+)
-        |ip\.src\s*==\s*(?P<ipsrc>\S+)
-        |ip\.dst\s*==\s*(?P<ipdst>\S+)
-        |tcp\.port\s*==\s*(?P<tcpport>\d+)
-        |udp\.port\s*==\s*(?P<udpport>\d+)
-        |frame\s+contains\s+(?P<contains>\S+)
-        |frame\.len\s*>\s*(?P<len_gt>\d+)
-        |frame\.len\s*<\s*(?P<len_lt>\d+)
-        |(?P<word>tcp|udp|arp|icmp|icmpv6|dns|mdns|llmnr|ssdp|ntp|ssh|dhcp|bootp|http|tls|ipv4|ipv6|ip|flagged|anomaly)
-    )$
+    \s*(?:
+        (?P<LPAREN>\()
+        |(?P<RPAREN>\))
+        |(?P<AND>&&|\band\b)
+        |(?P<OR>\|\||\bor\b)
+        |(?P<NOT>!|\bnot\b)
+        |(?P<ATOM>
+            (?:
+                [a-zA-Z0-9_\.]+\s*(?:==|!=|>=|<=|>|<|\bin\b|\bcontains\b)\s*(?:"[^"]*"|'[^']*'|[^()\s]+)
+                |[a-zA-Z0-9_\.]+
+            )
+        )
+    )
     """,
     re.VERBOSE | re.IGNORECASE,
 )
 
 
 def validate_display_filter(expression: str) -> str | None:
-    """Return an error message when the expression cannot be parsed."""
-    if not expression.strip():
+    """Return an error message if the expression cannot be parsed, else None."""
+    if not expression or not expression.strip():
         return None
     try:
         compile_display_filter(expression)
@@ -40,73 +50,304 @@ def validate_display_filter(expression: str) -> str | None:
 
 
 def compile_display_filter(expression: str) -> Predicate:
-    """Compile a filter into a predicate over stored packets.
-
-    Supported forms: protocol names, `and` / `or`, `ip.addr ==`, `ip.src ==`,
-    `ip.dst ==`, `tcp.port ==`, `udp.port ==`, `frame contains`, `frame.len >|<`.
-    """
+    """Compile a filter into an executable predicate over StoredPacket."""
     text = expression.strip()
     if not text:
         return lambda _packet: True
 
-    groups: list[list[Predicate]] = []
-    for or_part in re.split(r"\s+or\s+", text, flags=re.IGNORECASE):
-        clauses: list[Predicate] = []
-        for and_part in re.split(r"\s+and\s+", or_part.strip(), flags=re.IGNORECASE):
-            atom = and_part.strip()
-            if not atom:
-                raise ValueError("Empty display filter clause")
-            clauses.append(_compile_atom(atom))
-        groups.append(clauses)
+    tokens = _tokenize(text)
+    if not tokens:
+        return lambda _packet: True
 
-    def predicate(packet: StoredPacket) -> bool:
-        return any(all(clause(packet) for clause in group) for group in groups)
-
+    parser = _Parser(tokens)
+    predicate = parser.parse()
     return predicate
 
 
+def _tokenize(text: str) -> list[tuple[str, str]]:
+    tokens: list[tuple[str, str]] = []
+    pos = 0
+    while pos < len(text):
+        m = _TOKEN_RE.match(text, pos)
+        if not m:
+            # Skip stray whitespace or report error
+            remaining = text[pos:].strip()
+            if not remaining:
+                break
+            raise ValueError(f"Caracter o token inesperado en filtro: '{remaining[:20]}'")
+        for kind in ("LPAREN", "RPAREN", "AND", "OR", "NOT", "ATOM"):
+            val = m.group(kind)
+            if val is not None:
+                tokens.append((kind, val.strip()))
+                break
+        pos = m.end()
+    return tokens
+
+
+class _Parser:
+    def __init__(self, tokens: list[tuple[str, str]]) -> None:
+        self.tokens = tokens
+        self.pos = 0
+
+    def peek(self) -> tuple[str, str] | None:
+        if self.pos < len(self.tokens):
+            return self.tokens[self.pos]
+        return None
+
+    def consume(self, expected_kind: str | None = None) -> tuple[str, str]:
+        token = self.peek()
+        if token is None:
+            raise ValueError("Fin inesperado de expresión de filtro")
+        if expected_kind and token[0] != expected_kind:
+            raise ValueError(f"Se esperaba '{expected_kind}', se obtuvo '{token[1]}'")
+        self.pos += 1
+        return token
+
+    def parse(self) -> Predicate:
+        pred = self.expr()
+        if self.pos < len(self.tokens):
+            extra = self.tokens[self.pos][1]
+            raise ValueError(f"Token adicional inesperado: '{extra}'")
+        return pred
+
+    def expr(self) -> Predicate:
+        return self.or_expr()
+
+    def or_expr(self) -> Predicate:
+        left = self.and_expr()
+        while True:
+            token = self.peek()
+            if token and token[0] == "OR":
+                self.consume()
+                right = self.and_expr()
+                l_pred, r_pred = left, right
+                left = lambda p, l=l_pred, r=r_pred: l(p) or r(p)
+            else:
+                break
+        return left
+
+    def and_expr(self) -> Predicate:
+        left = self.not_expr()
+        while True:
+            token = self.peek()
+            if token and token[0] == "AND":
+                self.consume()
+                right = self.not_expr()
+                l_pred, r_pred = left, right
+                left = lambda p, l=l_pred, r=r_pred: l(p) and r(p)
+            else:
+                break
+        return left
+
+    def not_expr(self) -> Predicate:
+        token = self.peek()
+        if token and token[0] == "NOT":
+            self.consume()
+            sub = self.not_expr()
+            return lambda p, s=sub: not s(p)
+        return self.primary()
+
+    def primary(self) -> Predicate:
+        token = self.peek()
+        if token is None:
+            raise ValueError("Expresión incompleta al final de la consulta")
+        if token[0] == "LPAREN":
+            self.consume("LPAREN")
+            inner = self.expr()
+            self.consume("RPAREN")
+            return inner
+        if token[0] == "ATOM":
+            self.consume("ATOM")
+            return _compile_atom(token[1])
+        raise ValueError(f"Sintaxis inválida en '{token[1]}'")
+
+
+# ---------------------------------------------------------------------------
+# Atom Compilers
+# ---------------------------------------------------------------------------
+
+_COMPARISON_RE = re.compile(
+    r"""
+    ^\s*(?P<field>[a-zA-Z0-9_\.]+)\s*
+    (?P<op>==|!=|>=|<=|>|<|\bin\b|\bcontains\b)\s*
+    (?P<value>.*)$
+    """,
+    re.VERBOSE | re.IGNORECASE,
+)
+
+
 def _compile_atom(atom: str) -> Predicate:
-    match = _ATOM.match(atom)
-    if match is None:
-        raise ValueError(f"Unknown display filter token: {atom}")
-    if match.group("word"):
-        token = match.group("word").lower()
-        if token in {"flagged", "anomaly"}:
-            return lambda packet: packet.summary.flagged
-        return lambda packet, token=token: _matches_protocol(packet, token)
-    if match.group("ipaddr"):
-        value = _ip(match.group("ipaddr"))
-        return lambda packet, value=value: packet.src_ip == value or packet.dst_ip == value
-    if match.group("ipsrc"):
-        value = _ip(match.group("ipsrc"))
-        return lambda packet, value=value: packet.src_ip == value
-    if match.group("ipdst"):
-        value = _ip(match.group("ipdst"))
-        return lambda packet, value=value: packet.dst_ip == value
-    if match.group("tcpport"):
-        port = int(match.group("tcpport"))
-        return lambda packet, port=port: packet.summary.protocol in {"TCP", "HTTP", "TLS", "SSH"} and port in {
-            packet.src_port,
-            packet.dst_port,
-        }
-    if match.group("udpport"):
-        port = int(match.group("udpport"))
-        return lambda packet, port=port: packet.summary.protocol in {"UDP", "DNS", "mDNS", "LLMNR", "SSDP", "NTP", "DHCP"} and port in {
-            packet.src_port,
-            packet.dst_port,
-        }
-    if match.group("contains"):
-        needle = match.group("contains").strip("\"'").encode("utf-8", "replace")
-        return lambda packet, needle=needle: needle in packet.raw
-    if match.group("len_gt"):
-        size = int(match.group("len_gt"))
-        return lambda packet, size=size: packet.summary.length > size
-    size = int(match.group("len_lt"))
-    return lambda packet, size=size: packet.summary.length < size
+    atom = atom.strip()
+    m = _COMPARISON_RE.match(atom)
+    if m:
+        field = m.group("field").lower()
+        op = m.group("op").lower()
+        val = m.group("value").strip().strip("\"'")
+        return _compile_comparison(field, op, val)
+
+    # Bare keyword
+    word = atom.lower()
+    if word in {"flagged", "anomaly", "alert"}:
+        return lambda p: p.summary.flagged
+    if word in {
+        "tcp", "udp", "arp", "icmp", "icmpv6", "dns", "mdns", "llmnr", "ssdp",
+        "ntp", "ssh", "dhcp", "bootp", "http", "tls", "ipv4", "ipv6", "ip",
+    }:
+        return lambda p, w=word: _matches_protocol(p, w)
+
+    raise ValueError(f"Token de filtro desconocido o malformado: '{atom}'")
+
+
+def _compile_comparison(field: str, op: str, val: str) -> Predicate:
+    # 1. IP Addresses (Exact & CIDR)
+    if field in {"ip.addr", "ip.src", "ip.dst"}:
+        if op == "in":
+            try:
+                network = ipaddress.ip_network(val, strict=False)
+            except ValueError as e:
+                raise ValueError(f"Subred CIDR inválida en '{field} in {val}': {e}") from e
+            if field == "ip.src":
+                return lambda p, net=network: _ip_in_network(p.src_ip, net)
+            if field == "ip.dst":
+                return lambda p, net=network: _ip_in_network(p.dst_ip, net)
+            return lambda p, net=network: _ip_in_network(p.src_ip, net) or _ip_in_network(p.dst_ip, net)
+
+        if op in {"==", "!="}:
+            try:
+                canon_ip = str(ipaddress.ip_address(val))
+            except ValueError as e:
+                raise ValueError(f"Dirección IP inválida '{val}': {e}") from e
+            if field == "ip.src":
+                return lambda p, ip=canon_ip, equals=(op == "=="): (p.src_ip == ip) if equals else (p.src_ip != ip)
+            if field == "ip.dst":
+                return lambda p, ip=canon_ip, equals=(op == "=="): (p.dst_ip == ip) if equals else (p.dst_ip != ip)
+            return lambda p, ip=canon_ip, equals=(op == "=="): ((p.src_ip == ip or p.dst_ip == ip) if equals else (p.src_ip != ip and p.dst_ip != ip))
+
+    # 2. Port Filters (TCP, UDP, Generic)
+    if field in {"tcp.port", "tcp.srcport", "tcp.dstport", "udp.port", "udp.srcport", "udp.dstport", "port"}:
+        try:
+            port = int(val)
+        except ValueError as e:
+            raise ValueError(f"Número de puerto inválido en '{field}': '{val}'") from e
+
+        is_tcp = field.startswith("tcp.")
+        is_udp = field.startswith("udp.")
+
+        def port_eval(p: StoredPacket) -> bool:
+            proto = p.summary.protocol.upper()
+            if is_tcp and proto not in {"TCP", "HTTP", "TLS", "SSH"}:
+                return False
+            if is_udp and proto not in {"UDP", "DNS", "MDNS", "LLMNR", "SSDP", "NTP", "DHCP"}:
+                return False
+
+            ports: set[int] = set()
+            if "srcport" in field:
+                if p.src_port is not None:
+                    ports.add(p.src_port)
+            elif "dstport" in field:
+                if p.dst_port is not None:
+                    ports.add(p.dst_port)
+            else:
+                if p.src_port is not None:
+                    ports.add(p.src_port)
+                if p.dst_port is not None:
+                    ports.add(p.dst_port)
+
+            if op == "==":
+                return port in ports
+            if op == "!=":
+                return port not in ports
+            if op == ">":
+                return any(pt > port for pt in ports)
+            if op == ">=":
+                return any(pt >= port for pt in ports)
+            if op == "<":
+                return any(pt < port for pt in ports)
+            if op == "<=":
+                return any(pt <= port for pt in ports)
+            return False
+
+        return port_eval
+
+    # 3. Frame / Packet Length
+    if field in {"frame.len", "length", "len"}:
+        try:
+            size = int(val)
+        except ValueError as e:
+            raise ValueError(f"Tamaño de longitud inválido en '{field}': '{val}'") from e
+
+        if op == "==":
+            return lambda p, s=size: p.summary.length == s
+        if op == "!=":
+            return lambda p, s=size: p.summary.length != s
+        if op == ">":
+            return lambda p, s=size: p.summary.length > s
+        if op == ">=":
+            return lambda p, s=size: p.summary.length >= s
+        if op == "<":
+            return lambda p, s=size: p.summary.length < s
+        if op == "<=":
+            return lambda p, s=size: p.summary.length <= s
+
+    # 4. Content / Payload Search (frame contains, payload contains, data contains)
+    if field in {"frame", "payload", "data"} and op == "contains":
+        needle = val.encode("utf-8", "replace")
+        if field == "payload":
+            return lambda p, n=needle: n in p.payload
+        return lambda p, n=needle: n in p.raw
+
+    # 5. DNS Question Name
+    if field in {"dns.qname", "dns.query"}:
+        val_lower = val.lower()
+        if op == "==":
+            return lambda p, target=val_lower: p.dns_qname.lower() == target
+        if op == "!=":
+            return lambda p, target=val_lower: p.dns_qname.lower() != target
+        if op == "contains":
+            return lambda p, target=val_lower: target in p.dns_qname.lower()
+
+    # 6. HTTP Host
+    if field in {"http.host", "host"}:
+        val_lower = val.lower()
+        if op == "==":
+            return lambda p, target=val_lower: p.http_host.lower() == target
+        if op == "contains":
+            return lambda p, target=val_lower: target in p.http_host.lower()
+
+    # 7. TCP Flags
+    if field in {"tcp.flags.syn", "tcp.flags.ack", "tcp.flags.fin", "tcp.flags.rst", "tcp.flags.psh", "tcp.flags.urg"}:
+        flag_char = field.split(".")[-1][0].upper()
+        expected = val in {"1", "true", "True"}
+        return lambda p, ch=flag_char, exp=expected: (ch in p.tcp_flags) == exp
+
+    if field == "tcp.flags":
+        if op == "contains":
+            target = val.upper()
+            return lambda p, t=target: all(c in p.tcp_flags for c in t)
+        if op == "==":
+            target = val.upper()
+            return lambda p, t=target: p.tcp_flags == t
+
+    # 8. Stream ID
+    if field in {"stream.id", "stream_id", "tcp.stream"}:
+        if op == "==":
+            return lambda p, s=val: p.summary.stream_id == s
+        if op == "!=":
+            return lambda p, s=val: p.summary.stream_id != s
+
+    # 9. Protocol field
+    if field in {"protocol", "proto"}:
+        val_upper = val.upper()
+        if op == "==":
+            return lambda p, u=val_upper: p.summary.protocol.upper() == u
+        if op == "!=":
+            return lambda p, u=val_upper: p.summary.protocol.upper() != u
+
+    raise ValueError(f"Expresión de filtro no soportada: '{field} {op} {val}'")
 
 
 def _matches_protocol(packet: StoredPacket, token: str) -> bool:
-    protocol = packet.summary.protocol.upper()
+    token_upper = token.upper()
     if token == "ip":
         return packet.ip_version in {4, 6}
     if token == "ipv4":
@@ -114,9 +355,32 @@ def _matches_protocol(packet: StoredPacket, token: str) -> bool:
     if token == "ipv6":
         return packet.ip_version == 6
     if token == "bootp":
-        return protocol == "DHCP"
-    return protocol == token.upper()
+        token_upper = "DHCP"
+
+    summary_proto = packet.summary.protocol.upper()
+    if summary_proto == token_upper:
+        return True
+
+    # TCP family
+    if token_upper == "TCP":
+        if summary_proto in {"TCP", "HTTP", "TLS", "SSH"}:
+            return True
+        return any(layer.name.upper() == "TCP" for layer in packet.layers)
+
+    # UDP family
+    if token_upper == "UDP":
+        if summary_proto in {"UDP", "DNS", "MDNS", "LLMNR", "SSDP", "NTP", "DHCP"}:
+            return True
+        return any(layer.name.upper() == "UDP" for layer in packet.layers)
+
+    return any(layer.name.upper() == token_upper for layer in packet.layers)
 
 
-def _ip(text: str) -> str:
-    return str(ipaddress.ip_address(text.strip()))
+def _ip_in_network(ip_str: str, network: ipaddress.IPv4Network | ipaddress.IPv6Network) -> bool:
+    if not ip_str:
+        return False
+    try:
+        addr = ipaddress.ip_address(ip_str)
+        return addr in network
+    except ValueError:
+        return False

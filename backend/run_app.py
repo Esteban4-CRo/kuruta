@@ -88,20 +88,38 @@ def open_window(url: str) -> bool:
     return window is not None
 
 
+def is_already_running() -> bool:
+    """Check if an instance of Kuruta is already active on the designated port."""
+    import urllib.request
+
+    try:
+        with urllib.request.urlopen(f"http://{HOST}:{PORT}/health", timeout=0.8) as response:
+            return response.status == 200
+    except OSError:
+        return False
+
+
 def main() -> None:
     """Start the local API and present the console as an application window."""
     configure_logging()
     headless = "--headless" in sys.argv
-    server = threading.Thread(target=run_server, name="kuruta-http", daemon=True)
-    server.start()
-    wait_until_up()
     url = f"http://{HOST}:{PORT}/"
+
+    if not is_already_running():
+        server = threading.Thread(target=run_server, name="kuruta-http", daemon=True)
+        server.start()
+        wait_until_up()
+    else:
+        logging.info("Kuruta server is already active on %s. Connecting existing instance.", url)
+
     if headless:
-        server.join()
+        while True:
+            time.sleep(1)
         return
     if not open_window(url):
         webbrowser.open(url)
-        server.join()
+        while True:
+            time.sleep(1)
 
 
 if __name__ == "__main__":

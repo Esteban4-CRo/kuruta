@@ -51,6 +51,26 @@ def test_display_filter_tcp_and_port() -> None:
     assert predicate(named) is False
     assert validate_display_filter("not-a-filter") is not None
 
+    # Advanced concatenated queries & parentheses
+    pred_or = compile_display_filter("(tcp and tcp.port == 80) or udp")
+    assert pred_or(syn) is True
+    assert pred_or(named) is True
+
+    # CIDR subnet & NOT operator
+    pred_cidr = compile_display_filter("ip.src in 10.0.0.0/24 and not tcp")
+    assert pred_cidr(named) is True
+    assert pred_cidr(syn) is False
+
+    # DNS qname contains
+    pred_dns = compile_display_filter('dns and dns.qname contains "example"')
+    assert pred_dns(named) is True
+    assert pred_dns(syn) is False
+
+    # TCP flags and length comparisons
+    pred_syn_flag = compile_display_filter("tcp.flags.syn == 1 and frame.len >= 54")
+    assert pred_syn_flag(syn) is True
+    assert pred_syn_flag(named) is False
+
 
 def test_vertical_port_scan_emits_finding() -> None:
     detector = AnomalyDetector(HOST)

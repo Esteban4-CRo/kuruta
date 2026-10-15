@@ -227,32 +227,49 @@ frame contains "Bearer "</pre>
     </table>
   </section>
 
-  <!-- FILTROS COMBINADOS -->
+  <!-- FILTROS COMBINADOS Y CONSULTAS AVANZADAS -->
   <section id="filtros-combinados">
-    <h2>Filtros combinados</h2>
-    <p>Usa <code>or</code> y <code>and</code> para combinar condiciones:</p>
-    <pre><span class="c"># HTTP o TLS (todo el tráfico web)</span>
-http or tls
+    <h2>Consultas Concatenadas y Avanzadas</h2>
+    <p>El motor de filtrado de Kuruta admite expresiones lógicas concatenadas de longitud arbitraria, precedencia de operadores, anidación con paréntesis y comparación CIDR tal como en herramientas de análisis forense:</p>
 
-<span class="c"># DNS hacia Google</span>
-dns and ip.dst == 8.8.8.8
+    <h3>Operadores lógicos y de agrupación</h3>
+    <table>
+      <tr><th>Operador</th><th>Equivalente Wireshark</th><th>Significado</th><th>Ejemplo</th></tr>
+      <tr><td><code>and</code></td><td><code>&&</code></td><td>Conjunción lógica (ambas condiciones deben cumplirse)</td><td><code>tcp and tcp.port == 443</code></td></tr>
+      <tr><td><code>or</code></td><td><code>||</code></td><td>Disyunción lógica (al menos una condición)</td><td><code>http or tls or dns</code></td></tr>
+      <tr><td><code>not</code></td><td><code>!</code></td><td>Negación lógica (invierte la condición)</td><td><code>not arp and not icmp</code></td></tr>
+      <tr><td><code>( ... )</code></td><td><code>( ... )</code></td><td>Paréntesis para controlar precedencia y agrupamiento</td><td><code>(tcp.port == 80 or tcp.port == 443) and ip.src in 192.168.1.0/24</code></td></tr>
+    </table>
 
-<span class="c"># Paquetes TCP de un host específico</span>
-tcp and ip.addr == 192.168.1.5
+    <h3>Operadores de comparación y pertenencia</h3>
+    <table>
+      <tr><th>Operador</th><th>Campos aplicables</th><th>Descripción</th><th>Ejemplo</th></tr>
+      <tr><td><code>==</code> / <code>!=</code></td><td>IP, puertos, longitud, protocolo, stream</td><td>Igualdad exacta o desigualdad</td><td><code>tcp.port != 80 and frame.len == 64</code></td></tr>
+      <tr><td><code>&gt;</code> / <code>&gt;=</code> / <code>&lt;</code> / <code>&lt;=</code></td><td><code>frame.len</code>, puertos</td><td>Comparación numérica de tamaño o rango</td><td><code>frame.len &gt;= 1400 and tcp.port &lt; 1024</code></td></tr>
+      <tr><td><code>in</code></td><td><code>ip.addr</code>, <code>ip.src</code>, <code>ip.dst</code></td><td>Pertenencia a subred CIDR (IPv4/IPv6)</td><td><code>ip.src in 10.0.0.0/8 and not ip.dst in 10.0.0.0/8</code></td></tr>
+      <tr><td><code>contains</code></td><td><code>frame</code>, <code>payload</code>, <code>dns.qname</code>, <code>http.host</code>, <code>tcp.flags</code></td><td>Búsqueda de subcadena en texto o payload crudo</td><td><code>dns.qname contains "google" and not dns.qname contains "analytics"</code></td></tr>
+    </table>
 
-<span class="c"># Solo anomalías de escaneo de puertos</span>
-flagged and tcp
+    <h3>Recetas forenses y de ciberseguridad</h3>
+    <pre><span class="c"># 1. Detección de SYN Scan puro (SYN activo sin ACK)</span>
+tcp.flags.syn == 1 and tcp.flags.ack == 0 and not arp
 
-<span class="c"># Tráfico web y anomalías al mismo tiempo</span>
-http or flagged
+<span class="c"># 2. Búsqueda de tráfico fuera de la red corporativa</span>
+(ip.src in 192.168.1.0/24) and not (ip.dst in 192.168.1.0/24) and tcp.port != 443
 
-<span class="c"># DNS o DHCP (descubrimiento de red)</span>
-dns or dhcp or arp
+<span class="c"># 3. Identificación de anomalías IDS o escaneos en puertos web</span>
+(flagged or anomaly) and (tcp.port == 80 or tcp.port == 443 or tcp.port == 8080)
 
-<span class="c"># Excluir tráfico local (solo internet)</span>
-tcp and ip.dst == 8.8.8.8</pre>
+<span class="c"># 4. Exfiltración potencial: paquetes DNS grandes con payload</span>
+dns and frame.len &gt; 256 and not (dns.qname contains "microsoft" or dns.qname contains "google")
 
-    <div class="tip"><strong>Tip:</strong> Haz doble clic en un paquete en la tabla para abrir directamente el <em>Seguidor de Stream</em> si ese paquete tiene un stream TCP/UDP asociado.</div>
+<span class="c"># 5. Todo el tráfico HTTP no seguro con credenciales en claro</span>
+http and (frame contains "Authorization" or frame contains "password" or frame contains "Bearer")
+
+<span class="c"># 6. Tráfico a puertos altos sospechosos (C2 o reverse shells)</span>
+tcp and tcp.dstport &gt;= 40000 and not (tls or http)</pre>
+
+    <div class="tip"><strong>Precedencia de evaluación:</strong> <code>not</code> / <code>!</code> se evalúa primero, luego <code>and</code> / <code>&&</code>, y finalmente <code>or</code> / <code>||</code>. Usa siempre paréntesis <code>( ... )</code> cuando combines <code>and</code> con <code>or</code> para evitar ambigüedades.</div>
   </section>
 
   <!-- DISECCIÓN -->

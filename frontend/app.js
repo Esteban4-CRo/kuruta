@@ -108,7 +108,12 @@ async function selectPacket(number) {
     // Render Hex Dump (Pane 3)
     $("hexContainer").textContent = detail.hex || "(Sin volcado disponible)";
   } catch (error) {
-    $("treeContainer").innerHTML = `<div class="empty-state">Error cargando detalle: ${escapeHtml(error.message)}</div>`;
+    $("treeContainer").innerHTML = `
+      <div class="empty-state" style="padding: 24px; text-align: center;">
+        <div style="font-weight: 700; color: #ff6b6b; margin-bottom: 6px;">Error cargando detalle del paquete #${number}</div>
+        <div style="color: var(--muted); font-size: 11px; margin-bottom: 12px;">${escapeHtml(error.message)}</div>
+        <button type="button" class="btn" onclick="selectPacket(${number})">🔄 Reintentar inspección</button>
+      </div>`;
     $("hexContainer").textContent = "";
   }
 }

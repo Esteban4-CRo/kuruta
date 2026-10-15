@@ -19,3 +19,8 @@ dist/
 .vscode/
 .DS_Store
 Thumbs.db
+
+# Local downloads and website staging
+website/
+latest_release*/
+
