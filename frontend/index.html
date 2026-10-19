@@ -74,6 +74,25 @@
         </div>
       </div>
       <div class="menu-item" tabindex="0">
+        <span>IPS / Prevención</span>
+        <div class="dropdown">
+          <button type="button" id="menuIpsToggleMode">Alternar Modo Defensivo (Monitor ↔ Activo)</button>
+          <button type="button" id="menuIpsManualBlock">Aislar IP en cuarentena...</button>
+          <button type="button" id="menuIpsWhitelist">Configurar Lista Blanca (Whitelist)...</button>
+          <hr />
+          <button type="button" id="menuViewIps">Panel de Defensa Activa e Historial</button>
+        </div>
+      </div>
+      <div class="menu-item" tabindex="0">
+        <span>NAC / Dispositivos</span>
+        <div class="dropdown">
+          <button type="button" id="menuNacGateway">Configurar Gateway Legítimo...</button>
+          <button type="button" id="menuNacAuthorizeAll">Verificar y autorizar dispositivos</button>
+          <hr />
+          <button type="button" id="menuViewNac">Inventario Zero-Trust y Alertas Rogue</button>
+        </div>
+      </div>
+      <div class="menu-item" tabindex="0">
         <span>Ayuda</span>
         <div class="dropdown">
           <a href="/manual" target="_blank" id="menuManual">📖 Manual de Usuario (Filtros, Atajos, IDS)</a>
@@ -170,6 +189,12 @@
         </button>
         <button type="button" class="tab-btn" data-view="anomalies">
           Anomalías IDS <span id="badgeAnomalies" class="badge alert-badge">0</span>
+        </button>
+        <button type="button" class="tab-btn" data-view="ips">
+          🛡️ IPS / Firewall <span id="badgeIps" class="badge alert-badge">0</span>
+        </button>
+        <button type="button" class="tab-btn" data-view="nac">
+          🌐 NAC / Dispositivos <span id="badgeNac" class="badge">0</span>
         </button>
         <button type="button" class="tab-btn" data-view="stats">
           Estadísticas & Flujos
@@ -326,6 +351,169 @@
       </div>
     </main>
 
+    <!-- 9. VISTA 6: SISTEMA DE PREVENCIÓN DE INTRUSIONES (IPS) -->
+    <main id="view-ips" class="view-panel hidden">
+      <div class="panel-header ips-header">
+        <div class="panel-header-title">
+          <h2>🛡️ Prevención de Intrusiones (IPS) & Mitigación Activa de Firewall</h2>
+          <p>Defensa activa perimetral: Aislamiento automático de atacantes, bloqueo de tráfico anómalo en memoria y sincronización de reglas dinámicas con el Firewall del sistema operativo (WFP / netsh / iptables).</p>
+        </div>
+        <div class="ips-toolbar-controls">
+          <div class="ips-mode-switch">
+            <span class="ctrl-label">Modo Defensivo:</span>
+            <div class="segmented-control">
+              <button type="button" id="btnIpsModeMonitor" class="seg-btn active" title="Auditoría pasiva y marcado de tramas sospechosas">Monitor (Pasivo)</button>
+              <button type="button" id="btnIpsModeActive" class="seg-btn highlight" title="Bloqueo en tiempo real y reglas de firewall dinámicas">Firewall Activo (IPS)</button>
+            </div>
+          </div>
+          <label class="ips-checkbox-label">
+            <input type="checkbox" id="chkIpsAutoBlock" checked />
+            <span>Auto-cuarentena en severidad Alta / Crítica</span>
+          </label>
+          <div class="ips-actions-cluster">
+            <button type="button" id="btnIpsOpenManualBlock" class="btn btn-sm btn-danger">+ Aislar IP Manualmente</button>
+            <button type="button" id="btnIpsOpenWhitelist" class="btn btn-sm">⚙️ Lista Blanca</button>
+            <button type="button" id="btnIpsRefresh" class="btn btn-sm">↻ Actualizar</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="ips-grid-container">
+        <!-- SECCIÓN CUARENTENA ACTIVA -->
+        <div class="ips-box ips-quarantine-pane">
+          <div class="pane-title flex-title">
+            <span>Hosts en Cuarentena Activa (<strong id="ipsQuarantineCount">0</strong>)</span>
+            <span class="tag-hint">Aislamiento por Firewall & Drop Engine</span>
+          </div>
+          <div class="table-wrap ips-table-wrap">
+            <table class="ws-table ips-table">
+              <thead>
+                <tr>
+                  <th>Dirección IP</th>
+                  <th>Dirección MAC</th>
+                  <th>Motivo de Bloqueo</th>
+                  <th>Severidad</th>
+                  <th>Aislado Hace</th>
+                  <th>Expira En</th>
+                  <th>Paquetes Caídos</th>
+                  <th>Acción</th>
+                </tr>
+              </thead>
+              <tbody id="ipsQuarantineBody">
+                <tr><td colspan="8" class="empty-state">No hay hosts en cuarentena actualmente. La red se encuentra protegida.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- SECCIÓN AUDITORÍA DE MITIGACIÓN -->
+        <div class="ips-box ips-history-pane">
+          <div class="pane-title flex-title">
+            <span>Auditoría de Acciones Defensivas & Firewall</span>
+            <span class="tag-hint">Registro de mitigaciones automáticas y manuales</span>
+          </div>
+          <div class="table-wrap ips-table-wrap">
+            <table class="ws-table ips-table">
+              <thead>
+                <tr>
+                  <th>Hora</th>
+                  <th>Acción Defensiva</th>
+                  <th>IP Objetivo</th>
+                  <th>Motivo / Regla</th>
+                  <th>Mecanismo</th>
+                  <th>Resultado</th>
+                </tr>
+              </thead>
+              <tbody id="ipsHistoryBody">
+                <tr><td colspan="6" class="empty-state">Sin mitigaciones registradas recientemente.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- 10. VISTA 7: CONTROL DE ACCESO A LA RED (NAC) -->
+    <main id="view-nac" class="view-panel hidden">
+      <div class="panel-header nac-header">
+        <div class="panel-header-title">
+          <h2>🌐 Network Access Control (NAC) & Inventario Zero-Trust</h2>
+          <p>Identificación continua de dispositivos, análisis de fabricante (OUI), perfilado de sistema operativo (TTL), detección de Rogue Gateways (ARP Spoofing) y contención de intrusos.</p>
+        </div>
+        <div class="nac-top-actions">
+          <button type="button" id="btnNacOpenGatewayConfig" class="btn btn-sm">🛡️ Gateway Legítimo</button>
+          <button type="button" id="btnNacAuthorizeAll" class="btn btn-sm">✓ Autorizar Desconocidos</button>
+          <button type="button" id="btnNacRefresh" class="btn btn-sm">↻ Actualizar</button>
+        </div>
+      </div>
+
+      <!-- MÉTRICAS DE RESUMEN NAC -->
+      <div class="nac-summary-cards" id="nacSummaryCards">
+        <div class="stat-metric nac-card-total"><span>Dispositivos Totales</span><b id="nacStatTotal">0</b></div>
+        <div class="stat-metric nac-card-auth"><span>Autorizados</span><b id="nacStatAuth">0</b></div>
+        <div class="stat-metric nac-card-unknown"><span>Nuevos / Desconocidos</span><b id="nacStatUnknown">0</b></div>
+        <div class="stat-metric nac-card-rogue"><span>Rogue / Peligrosos</span><b id="nacStatRogue">0</b></div>
+        <div class="stat-metric nac-card-quar"><span>En Cuarentena</span><b id="nacStatQuar">0</b></div>
+      </div>
+
+      <!-- FILTROS Y BÚSQUEDA NAC -->
+      <div class="nac-filter-bar">
+        <div class="filter-pills-row">
+          <span>Filtrar estado:</span>
+          <button type="button" class="nac-status-pill active" data-status="all">Todos</button>
+          <button type="button" class="nac-status-pill" data-status="authorized">Autorizados</button>
+          <button type="button" class="nac-status-pill" data-status="unknown">Desconocidos</button>
+          <button type="button" class="nac-status-pill" data-status="rogue">Rogue / Amenazas</button>
+          <button type="button" class="nac-status-pill" data-status="quarantined">En Cuarentena</button>
+        </div>
+        <div class="nac-search-wrap">
+          <input id="nacSearchInput" placeholder="Buscar por MAC, IP, Fabricante o Hostname..." autocomplete="off" />
+        </div>
+      </div>
+
+      <div class="nac-grid-container">
+        <!-- TABLA DE DISPOSITIVOS -->
+        <div class="nac-box nac-devices-pane">
+          <div class="pane-title flex-title">
+            <span>Inventario de Dispositivos Conectados</span>
+            <span class="tag-hint">Perfilado continuo de activos L2 / L3</span>
+          </div>
+          <div class="table-wrap nac-table-wrap">
+            <table class="ws-table nac-table">
+              <thead>
+                <tr>
+                  <th>Dirección MAC</th>
+                  <th>Fabricante (OUI)</th>
+                  <th>Dirección IP</th>
+                  <th>Nombre / Hostname</th>
+                  <th>Huella SO (TTL)</th>
+                  <th>Tráfico</th>
+                  <th>Estado de Confianza</th>
+                  <th>Acciones NAC</th>
+                </tr>
+              </thead>
+              <tbody id="nacDevicesBody">
+                <tr><td colspan="8" class="empty-state">No se han detectado dispositivos aún. Inicia captura o simula tráfico.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- FEED DE ALERTAS NAC -->
+        <div class="nac-box nac-alerts-pane">
+          <div class="pane-title flex-title">
+            <span>Alertas de Seguridad NAC (Rogue / Spoofing)</span>
+            <span class="tag-hint">Detección de Gateway impersonation y nuevos dispositivos</span>
+          </div>
+          <div class="nac-alerts-scroll">
+            <ul id="nacAlertsFeed" class="anomalies-list">
+              <li class="empty-state">Sin alertas de acceso no autorizado registradas.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </main>
+
     <!-- MODAL: OPCIONES DE CAPTURA (ESTILO WIRESHARK) -->
     <div id="modalOptions" class="modal-overlay hidden">
       <div class="modal-window">
@@ -401,15 +589,130 @@
       </div>
     </div>
 
-    <!-- 9. STATUS BAR INFERIOR DE WIRESHARK -->
+    <!-- MODAL: AISLAR IP MANUALMENTE (CUARENTENA IPS) -->
+    <div id="modalIpsBlock" class="modal-overlay hidden">
+      <div class="modal-window">
+        <div class="modal-titlebar">
+          <span>Aislar Dirección IP en Cuarentena IPS</span>
+          <button type="button" class="modal-close" data-close="modalIpsBlock">✕</button>
+        </div>
+        <div class="modal-content">
+          <label class="modal-field">
+            <span>Dirección IP Objetivo:</span>
+            <input id="modalIpsBlockIp" placeholder="Ej: 192.168.1.88 o 10.0.0.5" />
+          </label>
+          <label class="modal-field">
+            <span>Dirección MAC (opcional):</span>
+            <input id="modalIpsBlockMac" placeholder="Ej: 08:00:27:12:34:56" />
+          </label>
+          <label class="modal-field">
+            <span>Motivo de la Contención:</span>
+            <input id="modalIpsBlockReason" value="Aislamiento preventivo manual por administrador" />
+          </label>
+          <label class="modal-field">
+            <span>Duración del Aislamiento:</span>
+            <select id="modalIpsBlockDuration">
+              <option value="300">5 Minutos (Temporal)</option>
+              <option value="600" selected>10 Minutos (Estándar)</option>
+              <option value="3600">1 Hora</option>
+              <option value="86400">24 Horas</option>
+              <option value="0">Permanente (Hasta liberación manual)</option>
+            </select>
+          </label>
+          <div class="modal-help-box">
+            <strong>Acción Defensiva:</strong> Al aislar este host, sus tramas se descartarán de inmediato en el búfer de captura y, si el modo <em>Firewall Activo</em> está habilitado, se inyectarán reglas de bloqueo en el Firewall del SO.
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn" data-close="modalIpsBlock">Cancelar</button>
+          <button type="button" id="btnModalConfirmBlock" class="btn btn-primary btn-danger">Aislar Host Ahora</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL: LISTA BLANCA IPS (WHITELIST) -->
+    <div id="modalIpsWhitelist" class="modal-overlay hidden">
+      <div class="modal-window">
+        <div class="modal-titlebar">
+          <span>Configurar Lista Blanca de Exclusiones IPS</span>
+          <button type="button" class="modal-close" data-close="modalIpsWhitelist">✕</button>
+        </div>
+        <div class="modal-content">
+          <p>Las siguientes direcciones IP jamás serán aisladas ni bloqueadas por las defensas del IPS (una IP por línea):</p>
+          <textarea id="modalIpsWhitelistArea" class="modal-textarea" rows="6" placeholder="127.0.0.1&#10;192.168.1.1&#10;1.1.1.1&#10;8.8.8.8"></textarea>
+          <div class="modal-help-box">
+            <strong>Seguridad recomendada:</strong> Asegúrate de incluir la dirección IP del Gateway legítimo, servidores DNS y tu propia estación de administración.
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn" data-close="modalIpsWhitelist">Cancelar</button>
+          <button type="button" id="btnModalSaveWhitelist" class="btn btn-primary">Guardar Lista Blanca</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL: GATEWAY LEGÍTIMO NAC -->
+    <div id="modalNacGateway" class="modal-overlay hidden">
+      <div class="modal-window">
+        <div class="modal-titlebar">
+          <span>Configuración de Gateway Legítimo (Defensa Anti-Rogue)</span>
+          <button type="button" class="modal-close" data-close="modalNacGateway">✕</button>
+        </div>
+        <div class="modal-content">
+          <label class="modal-field">
+            <span>Dirección IP del Gateway Predeterminado:</span>
+            <input id="modalNacGwIp" value="192.168.1.1" placeholder="Ej: 192.168.1.1" />
+          </label>
+          <label class="modal-field">
+            <span>Dirección MAC Legítima del Gateway:</span>
+            <input id="modalNacGwMac" placeholder="Ej: 00:00:0C:44:55:66 (dejar vacío para autodetección)" />
+          </label>
+          <div class="modal-help-box">
+            <strong>Detección de MitM y ARP Poisoning:</strong> Si otro dispositivo en la red intenta anunciar esta IP de Gateway con una MAC distinta, Kuruta NAC generará de inmediato una alerta CRÍTICA de Rogue Gateway y el IPS aislará al atacante.
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn" data-close="modalNacGateway">Cancelar</button>
+          <button type="button" id="btnModalSaveGateway" class="btn btn-primary">Guardar Configuración</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL: RENOMBRAR DISPOSITIVO NAC -->
+    <div id="modalNacRename" class="modal-overlay hidden">
+      <div class="modal-window">
+        <div class="modal-titlebar">
+          <span>Asignar Nombre / Alias al Dispositivo</span>
+          <button type="button" class="modal-close" data-close="modalNacRename">✕</button>
+        </div>
+        <div class="modal-content">
+          <label class="modal-field">
+            <span>Dirección MAC:</span>
+            <input id="modalNacRenameMac" readonly disabled />
+          </label>
+          <label class="modal-field">
+            <span>Nombre / Hostname Personalizado:</span>
+            <input id="modalNacRenameName" placeholder="Ej: MacBook Pro - Sala de Juntas" />
+          </label>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn" data-close="modalNacRename">Cancelar</button>
+          <button type="button" id="btnModalSaveRename" class="btn btn-primary">Guardar Alias</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 11. STATUS BAR INFERIOR DE WIRESHARK -->
     <footer class="ws-statusbar">
       <div class="status-cell" id="sbStatusText">● Detenido</div>
       <div class="status-cell" id="sbPacketsText">Paquetes: 0</div>
       <div class="status-cell" id="sbDisplayedText">Mostrados: 0</div>
       <div class="status-cell" id="sbMarkedText">Anomalías: 0</div>
+      <div class="status-cell" id="sbIpsText">IPS: 0 aislados</div>
+      <div class="status-cell" id="sbNacText">NAC: 0 dispositivos</div>
       <div class="status-cell" id="sbRateText">0.0 pps · 0 B</div>
       <div class="status-cell grow" id="sbErrorText"></div>
-      <div class="status-cell profile-cell">Perfil: Blanco y Negro (Wireshark IDS)</div>
+      <div class="status-cell profile-cell">Perfil: Blanco y Negro (Wireshark IDS / IPS / NAC)</div>
     </footer>
 
     <script src="/static/app.js"></script>

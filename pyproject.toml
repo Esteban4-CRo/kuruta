@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "kuruta-ids"
-version = "0.2.0"
-description = "Kuruta is a local IDS and packet sniffer for trusted home networks."
+version = "0.3.5"
+description = "Enterprise network security suite: Packet Sniffer, IDS, IPS active defense, and NAC asset control."
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]

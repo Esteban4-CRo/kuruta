@@ -15,6 +15,8 @@ from scapy.all import get_if_list, sniff, wrpcap
 from scapy.packet import Packet, Raw
 
 from backend.ingestion.schema import HostIdentity
+from backend.ips.engine import IPSEngine
+from backend.nac.engine import NACEngine
 from backend.sniffer.anomalies import AnomalyDetector, AnomalyFinding
 from backend.sniffer.decode import decode_frame
 from backend.sniffer.display_filter import compile_display_filter, validate_display_filter
@@ -60,9 +62,15 @@ def list_capture_interfaces() -> list[dict[str, str]]:
 
 
 class CaptureEngine:
-    """Thread-safe ring buffer plus a Scapy sniffing worker."""
+    """Thread-safe ring buffer, Scapy sniffer worker, and NAC/IPS defense controller."""
 
-    def __init__(self, host: HostIdentity | None = None, on_packet: OnPacket | None = None) -> None:
+    def __init__(
+        self,
+        host: HostIdentity | None = None,
+        on_packet: OnPacket | None = None,
+        ips_engine: IPSEngine | None = None,
+        nac_engine: NACEngine | None = None,
+    ) -> None:
         self._lock = threading.RLock()
         self._host = host or local_host()
         self._on_packet = on_packet
@@ -70,6 +78,8 @@ class CaptureEngine:
         self._order: deque[int] = deque()
         self._anomalies: deque[dict[str, Any]] = deque(maxlen=500)
         self._detector = AnomalyDetector(self._host)
+        self._ips = ips_engine or IPSEngine()
+        self._nac = nac_engine or NACEngine()
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
         self._running = False
@@ -82,6 +92,12 @@ class CaptureEngine:
         self._dropped = 0
         self._bytes = 0
         self._by_protocol: dict[str, int] = {}
+
+    def ips(self) -> IPSEngine:
+        return self._ips
+
+    def nac(self) -> NACEngine:
+        return self._nac
 
     def status(self) -> dict[str, Any]:
         with self._lock:
@@ -130,6 +146,7 @@ class CaptureEngine:
             self._order.clear()
             self._anomalies.clear()
             self._detector = AnomalyDetector(self._host)
+            self._nac.clear()
             self._next_no = 1
             self._dropped = 0
             self._bytes = 0
@@ -148,7 +165,41 @@ class CaptureEngine:
             number = self._next_no
             self._next_no += 1
             stored = decode_frame(packet, number, self._started_at or float(getattr(packet, "time", 0.0)))
+
+            # IPS packet inspection: check if sender/target is under active quarantine
+            is_blocked = self._ips.is_blocked(stored.src_ip) or self._ips.is_blocked(stored.dst_ip)
+            if is_blocked:
+                stored.summary.flagged = True
+                stored.summary.info = f"[IPS BLOCKED] {stored.summary.info}"
+
+            # NAC asset profiling and rogue device detection
+            nac_alerts = self._nac.observe(stored)
+
+            # Heuristic and signature anomaly detection
             findings = self._detector.observe(stored)
+
+            # Active Defense: IPS threat mitigation on High/Critical findings
+            for finding in findings:
+                if finding.severity in {"high", "critical"}:
+                    self._ips.handle_threat(
+                        ip=stored.src_ip,
+                        mac=stored.src_mac,
+                        reason=finding.title,
+                        severity=finding.severity,
+                        rule_id=finding.kind,
+                    )
+
+            # Active Defense: IPS threat mitigation on Rogue NAC alerts
+            for n_alert in nac_alerts:
+                if n_alert.severity in {"high", "critical"}:
+                    self._ips.handle_threat(
+                        ip=n_alert.ip,
+                        mac=n_alert.mac,
+                        reason=n_alert.title,
+                        severity=n_alert.severity,
+                        rule_id=n_alert.event_type,
+                    )
+
             self._packets[number] = stored
             self._order.append(number)
             self._bytes += stored.summary.length
@@ -300,7 +351,7 @@ class CaptureEngine:
             path.unlink(missing_ok=True)
 
     def simulate_traffic(self) -> list[StoredPacket]:
-        """Generate realistic packets and IDS anomalies without any external drivers."""
+        """Generate realistic packets, multi-vendor NAC assets, and IPS-actionable attacks."""
         import time
         from scapy.layers.dns import DNS, DNSQR, DNSRR
         from scapy.layers.inet import ICMP, IP, TCP, UDP
@@ -310,56 +361,75 @@ class CaptureEngine:
         generated: list[StoredPacket] = []
         now = time.time()
 
-        # 1. ARP announcement
-        p1 = Ether(src="00:11:22:33:44:55", dst="ff:ff:ff:ff:ff:ff") / ARP(
-            op=1, psrc="192.168.1.1", pdst="192.168.1.254", hwsrc="00:11:22:33:44:55"
+        # 1. Cisco Gateway Announcement & Baseline (NAC: Authorized Gateway)
+        gateway_mac = "00:00:0C:44:55:66"
+        p_gw = Ether(src=gateway_mac, dst="ff:ff:ff:ff:ff:ff") / ARP(
+            op=2, psrc="192.168.1.1", pdst="192.168.1.254", hwsrc=gateway_mac
         )
-        p1.time = now
-        generated.append(self.ingest_packet(p1))
+        p_gw.time = now
+        generated.append(self.ingest_packet(p_gw))
 
-        # 2. DNS query & response
-        p2 = Ether() / IP(src="192.168.1.15", dst="1.1.1.1") / UDP(sport=54123, dport=53) / DNS(
+        # 2. Apple MacBook Pro on LAN (NAC: Apple Inc., macOS TTL=64)
+        apple_mac = "00:03:93:11:22:33"
+        p_apple_dns = Ether(src=apple_mac) / IP(src="192.168.1.15", dst="1.1.1.1", ttl=64) / UDP(sport=54123, dport=53) / DNS(
             id=0x1234, qd=DNSQR(qname="kuruta.local")
         )
-        p2.time = now + 0.01
-        generated.append(self.ingest_packet(p2))
+        p_apple_dns.time = now + 0.01
+        generated.append(self.ingest_packet(p_apple_dns))
 
-        p3 = Ether() / IP(src="1.1.1.1", dst="192.168.1.15") / UDP(sport=53, dport=54123) / DNS(
+        p_apple_resp = Ether(src=gateway_mac) / IP(src="1.1.1.1", dst="192.168.1.15", ttl=56) / UDP(sport=53, dport=54123) / DNS(
             id=0x1234, qr=1, qd=DNSQR(qname="kuruta.local"), an=DNSRR(rrname="kuruta.local", rdata="192.168.1.1")
         )
-        p3.time = now + 0.02
-        generated.append(self.ingest_packet(p3))
+        p_apple_resp.time = now + 0.02
+        generated.append(self.ingest_packet(p_apple_resp))
 
-        # 3. HTTP GET request & response
-        p4 = Ether() / IP(src="192.168.1.15", dst="192.168.1.1") / TCP(sport=51234, dport=80, flags="PA") / Raw(
-            load=b"GET /api/status HTTP/1.1\r\nHost: kuruta.local\r\nUser-Agent: KurutaClient/1.0\r\n\r\n"
+        # 3. Raspberry Pi HomeLab Server (NAC: Raspberry Pi Trading, Linux TTL=64)
+        rpi_mac = "B8:27:EB:77:88:99"
+        p_rpi = Ether(src=rpi_mac) / IP(src="192.168.1.50", dst="192.168.1.1", ttl=64) / TCP(sport=22, dport=51234, flags="SA")
+        p_rpi.time = now + 0.03
+        generated.append(self.ingest_packet(p_rpi))
+
+        # 4. Espressif ESP32 Smart IoT Sensor (NAC: Espressif Inc., MQTT)
+        esp_mac = "24:0A:C4:AA:BB:CC"
+        p_esp = Ether(src=esp_mac) / IP(src="192.168.1.75", dst="192.168.1.50", ttl=255) / UDP(sport=1883, dport=1883) / Raw(
+            load=b'{"sensor":"temp","value":22.4}'
         )
-        p4.time = now + 0.03
-        generated.append(self.ingest_packet(p4))
+        p_esp.time = now + 0.04
+        generated.append(self.ingest_packet(p_esp))
 
-        # 4. Vertical port scan (triggers vertical-port-scan anomaly!)
+        # 5. Dell Windows 11 Workstation (NAC: Dell Inc., Windows TTL=128, HTTP API)
+        dell_mac = "00:14:22:88:99:AA"
+        p_dell = Ether(src=dell_mac) / IP(src="192.168.1.110", dst="192.168.1.1", ttl=128) / TCP(sport=51234, dport=80, flags="PA") / Raw(
+            load=b"GET /api/status HTTP/1.1\r\nHost: kuruta.local\r\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64)\r\n\r\n"
+        )
+        p_dell.time = now + 0.05
+        generated.append(self.ingest_packet(p_dell))
+
+        # 6. Attacker VM (Oracle VirtualBox) - Vertical port scan (IDS: vertical-port-scan, IPS: Host Quarantine)
+        attacker_mac = "08:00:27:12:34:56"
         scanner_ip = "192.168.1.88"
         target_ip = "192.168.1.1"
         for port in [21, 22, 23, 25, 53, 80, 110, 135, 139, 143, 443, 445, 993, 995, 1433, 1521, 3306, 3389, 5432, 5900, 6379, 8080, 8443, 8888, 9000, 9200, 27017, 5000, 8000, 8081, 8848, 10000]:
-            scan_pkt = Ether() / IP(src=scanner_ip, dst=target_ip) / TCP(sport=49152, dport=port, flags="S")
-            scan_pkt.time = now + 0.05
+            scan_pkt = Ether(src=attacker_mac) / IP(src=scanner_ip, dst=target_ip) / TCP(sport=49152, dport=port, flags="S")
+            scan_pkt.time = now + 0.06
             generated.append(self.ingest_packet(scan_pkt))
 
-        # 5. DNS Tunneling query (triggers dns-tunneling anomaly via high entropy!)
-        p_tunnel = Ether() / IP(src="192.168.1.99", dst="8.8.8.8") / UDP(sport=61234, dport=53) / DNS(
+        # 7. DNS Tunneling query (IDS: dns-tunneling anomaly via Shannon entropy, IPS: Threat Logged)
+        p_tunnel = Ether(src="00:16:EA:44:33:22") / IP(src="192.168.1.99", dst="8.8.8.8") / UDP(sport=61234, dport=53) / DNS(
             id=0xABCD, qd=DNSQR(qname="a7f9b2c3d4e5f67890123456789abcdef0.exfil.domain.com")
         )
         p_tunnel.time = now + 0.1
         generated.append(self.ingest_packet(p_tunnel))
 
-        # 6. Invalid TCP flags SYN+FIN (triggers invalid-tcp-flags anomaly!)
-        p_synfin = Ether() / IP(src="192.168.1.88", dst=target_ip) / TCP(sport=49153, dport=80, flags="SF")
+        # 8. Invalid TCP flags SYN+FIN (RFC 793 violation / nmap evasion attempt)
+        p_synfin = Ether(src=attacker_mac) / IP(src=scanner_ip, dst=target_ip) / TCP(sport=49153, dport=80, flags="SF")
         p_synfin.time = now + 0.15
         generated.append(self.ingest_packet(p_synfin))
 
-        # 7. ARP Conflict (triggers arp-conflict anomaly!)
-        p_arp_spoof = Ether(src="aa:bb:cc:dd:ee:ff") / ARP(
-            op=2, psrc="192.168.1.1", hwsrc="aa:bb:cc:dd:ee:ff"
+        # 9. Rogue Gateway / ARP Poisoning attack (NAC: Rogue Gateway Detected! Critical Alert & IPS Quarantine)
+        rogue_gw_mac = "AA:BB:CC:DD:EE:FF"
+        p_arp_spoof = Ether(src=rogue_gw_mac) / ARP(
+            op=2, psrc="192.168.1.1", hwsrc=rogue_gw_mac
         )
         p_arp_spoof.time = now + 0.2
         generated.append(self.ingest_packet(p_arp_spoof))

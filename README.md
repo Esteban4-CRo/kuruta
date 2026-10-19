@@ -20,15 +20,12 @@
 > tarjeta Wi-Fi en modo promiscuo no muestra automáticamente el unicast de
 > otros clientes.
 
-## Qué incluye
+## Pilares Fundamentales de Kuruta
 
-- Aplicación de escritorio en blanco y negro, con el logo de Kuruta.
-- Sniffer con lista de paquetes, árbol de protocolos, volcado hex, filtro de
-  visualización, seguimiento de stream, estadísticas, conversaciones y exporto PCAP.
-- Detección de anomalías sobre la captura: barridos de puertos, SYN/ICMP flood,
-  conflictos ARP, flags TCP inusuales, DNS anómalo y picos de volumen.
-- Agente Rust opcional para inicios de procesos en el mismo equipo.
-- Almacenamiento local SQLite; no se envían eventos a un servicio de terceros.
+1. **Sniffer de Red de Alto Rendimiento**: Captura con Scapy/Npcap y fallback de sockets raw, inspección profunda L2/L3/L4/L7 al estilo Wireshark, seguimiento de streams TCP/UDP, filtros de visualización avanzados, jerarquía de protocolos y exportación/importación estándar PCAP.
+2. **IDS Heurístico (Intrusion Detection System)**: Detección analítica de escaneos de puertos (vertical y horizontal), inundaciones SYN/ICMP, exfiltración por túneles DNS mediante entropía de Shannon, combinaciones de flags prohibidas (RFC 793) y envenenamiento ARP.
+3. **IPS Reactivo (Intrusion Prevention System)**: Defensa perimetral activa. Aislamiento automático de hosts agresores en memoria y en las reglas del Firewall del sistema operativo (WFP / netsh / iptables), inyección de tramas de terminación TCP RST, búfer de cuarentena y auditoría de mitigaciones.
+4. **NAC Zero-Trust (Network Access Control)**: Descubrimiento y perfilado continuo de activos, identificación de fabricante por base OUI (Apple, Cisco, Espressif, Raspberry Pi, etc.), detección de sistema operativo por TTL, detección de Rogue Gateways (ARP Hijack) y servidores DHCP no autorizados.
 
 ## Descarga e Instalación (Windows y Linux)
 

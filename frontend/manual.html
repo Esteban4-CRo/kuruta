@@ -87,6 +87,8 @@
   <a href="#streams">Seguir streams</a>
   <a href="#estadisticas">Estadísticas</a>
   <a href="#anomalias">Motor IDS</a>
+  <a href="#ips">Defensa Activa IPS</a>
+  <a href="#nac">Control de Red NAC</a>
   <a href="#pcap">Importar / Exportar PCAP</a>
   <a href="#simulate">Tráfico de prueba</a>
   <div class="nav-section">Referencia</div>
@@ -333,6 +335,70 @@ tcp and tcp.dstport &gt;= 40000 and not (tls or http)</pre>
     <p>Para probar la detección sin tráfico real, usa:</p>
     <pre>Barra de herramientas → ⚡ Tráfico de Prueba IDS</pre>
     <p>Esto inyecta tráfico sintético que activa todos los detectores: escaneo de puertos, DNS tunneling, ARP spoofing, flags TCP inválidos.</p>
+  </section>
+
+  <!-- IPS (INTRUSION PREVENTION SYSTEM) -->
+  <section id="ips">
+    <h2>Sistema de Prevención de Intrusiones (IPS) & Defensa Activa</h2>
+    <p>Kuruta integra un motor IPS de mitigación en tiempo real que trasciende la simple alerta pasiva, permitiendo contener activamente a los atacantes en el perímetro.</p>
+    
+    <h3>Modos Operativos del IPS</h3>
+    <table>
+      <tr><th>Modo</th><th>Comportamiento</th></tr>
+      <tr>
+        <td><strong>Monitor (Pasivo)</strong></td>
+        <td>Modo de solo auditoría. Registra eventos, calcula métricas de anomalías e identifica atacantes sin bloquear el tráfico.</td>
+      </tr>
+      <tr>
+        <td><strong>Firewall Activo (IPS)</strong></td>
+        <td>Defensa activa en tiempo real. Cuando una máquina genera alertas de severidad <em>Alta</em> o <em>Crítica</em> (ej. escaneo masivo de puertos o ARP spoofing), el IPS bloquea sus tramas en memoria y sincroniza automáticamente reglas de bloqueo en el Firewall del sistema operativo (Windows Filtering Platform / netsh / iptables).</td>
+      </tr>
+    </table>
+
+    <h3>Capacidades de Mitigación</h3>
+    <ul>
+      <li><strong>Cuarentena Automática de Hosts:</strong> Aislamiento inmediato de direcciones IP atacantes por tiempo determinado (por defecto 10 minutos) o indefinido.</li>
+      <li><strong>Aislamiento Manual de IPs:</strong> Permite al analista de seguridad aislar cualquier IP con un solo clic o mediante el diálogo <em>Aislar IP Manualmente</em>.</li>
+      <li><strong>Inyección de Tramas TCP RST:</strong> Síntesis de paquetes de reinicio TCP para terminar de raíz conexiones de exploit activas.</li>
+      <li><strong>Lista Blanca (Whitelist):</strong> Exclusión garantizada para routers, DNS de confianza y equipos de administración que jamás deben ser bloqueados.</li>
+      <li><strong>Auditoría de Mitigaciones:</strong> Registro cronológico de todas las intervenciones del firewall para trazabilidad y cumplimiento forense.</li>
+    </ul>
+  </section>
+
+  <!-- NAC (NETWORK ACCESS CONTROL) -->
+  <section id="nac">
+    <h2>Network Access Control (NAC) & Inventario Zero-Trust</h2>
+    <p>El módulo NAC de Kuruta realiza descubrimiento pasivo y perfilado continuo de cada activo conectado a la red local sin necesidad de instalar agentes en los dispositivos.</p>
+
+    <h3>Perfilado de Activos</h3>
+    <ul>
+      <li><strong>Identificación de Fabricante (MAC OUI):</strong> Reconocimiento de proveedores de hardware (Apple, Cisco, Dell, Raspberry Pi, Espressif, Intel, VMware, etc.).</li>
+      <li><strong>Huella de Sistema Operativo (OS Fingerprint):</strong> Deducción de SO (Windows, Linux/macOS, Network Appliance) mediante análisis de Time-to-Live (TTL) y parámetros TCP.</li>
+      <li><strong>Resolución de Nombres:</strong> Extracción heurística de hostnames a través de tramas DHCP Option 12, mDNS y consultas NetBIOS.</li>
+    </ul>
+
+    <h3>Detección de Amenazas en Capa 2</h3>
+    <table>
+      <tr><th>Amenaza</th><th>Mecanismo de Detección NAC</th><th>Acción IPS</th></tr>
+      <tr>
+        <td><strong>Rogue Gateway (ARP Poisoning)</strong></td>
+        <td>Detecta cuando una dirección MAC no autorizada anuncia la IP del Gateway predeterminado.</td>
+        <td>Alerta CRÍTICA y cuarentena inmediata del atacante.</td>
+      </tr>
+      <tr>
+        <td><strong>Rogue DHCP Server</strong></td>
+        <td>Identifica ofertas DHCP no autorizadas (puertos UDP 67/68) de máquinas desconocidas.</td>
+        <td>Alerta CRÍTICA y bloqueo de la máquina emisora.</td>
+      </tr>
+      <tr>
+        <td><strong>Conflicto IP / MAC Spoofing</strong></td>
+        <td>Alerta cuando una misma IP salta entre diferentes direcciones MAC físicas.</td>
+        <td>Alerta ALTA y registro de anomalía.</td>
+      </tr>
+    </table>
+
+    <h3>Gestión de Estados de Confianza</h3>
+    <p>Cada endpoint se clasifica en uno de cuatro estados de confianza Zero-Trust: <span class="chip" style="color:#2ecc71; border-color:#2ecc71;">AUTORIZADO</span>, <span class="chip" style="color:#f1c40f; border-color:#f1c40f;">DESCONOCIDO</span>, <span class="chip" style="color:#e74c3c; border-color:#e74c3c;">ROGUE</span>, o <span class="chip" style="color:#bb6bd9; border-color:#bb6bd9;">CUARENTENA</span>. El analista puede autorizar o aislar equipos con un clic.</p>
   </section>
 
   <!-- PCAP -->

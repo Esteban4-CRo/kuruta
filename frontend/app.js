@@ -12,6 +12,15 @@ const state = {
   anomalyFilter: "all",
   stats: null,
   zoomLevel: 12,
+  ipsQuarantine: [],
+  ipsHistory: [],
+  ipsConfig: { mode: "monitor", auto_block: true, block_duration_sec: 600, whitelist: [] },
+  nacDevices: [],
+  nacSummary: { total_devices: 0, authorized: 0, unknown: 0, rogue: 0, quarantined: 0 },
+  nacAlerts: [],
+  nacFilterStatus: "all",
+  nacSearchQuery: "",
+  activeRenameMac: null,
 };
 
 // HELPER API FETCH
@@ -348,6 +357,17 @@ function connectLive() {
         $("sbMarkedText").textContent = `Anomalías: ${state.anomalies.length}`;
         renderAnomalies();
       }
+      if (msg.type === "ips_quarantine" || msg.type === "ips_mitigation") {
+        loadIpsData().catch(() => {});
+      }
+      if (msg.type === "nac_alert") {
+        state.nacAlerts.unshift(msg.alert);
+        renderNacAlerts();
+        loadNacSummary().catch(() => {});
+      }
+      if (msg.type === "nac_device") {
+        loadNacData().catch(() => {});
+      }
     } catch (_err) {
       /* ignore */
     }
@@ -481,6 +501,285 @@ function showView(name) {
   }
   if (name === "stats") loadStats().catch(() => {});
   if (name === "anomalies") renderAnomalies();
+  if (name === "ips") loadIpsData().catch(showError);
+  if (name === "nac") loadNacData().catch(showError);
+}
+
+// ==========================================================================
+// IPS (INTRUSION PREVENTION SYSTEM) DEFENSE FUNCTIONS
+// ==========================================================================
+async function loadIpsData() {
+  try {
+    const [status, qData, hData] = await Promise.all([
+      api("/api/v1/ips/status"),
+      api("/api/v1/ips/quarantine"),
+      api("/api/v1/ips/history?limit=100"),
+    ]);
+
+    state.ipsConfig = {
+      mode: status.mode,
+      auto_block: status.auto_block,
+      block_duration_sec: status.block_duration_sec,
+      whitelist: status.whitelist || [],
+    };
+    state.ipsQuarantine = qData.quarantine || [];
+    state.ipsHistory = hData.history || [];
+
+    // Mode Buttons
+    const isAct = status.mode === "active";
+    $("btnIpsModeMonitor").classList.toggle("active", !isAct);
+    $("btnIpsModeActive").classList.toggle("active", isAct);
+    $("chkIpsAutoBlock").checked = !!status.auto_block;
+
+    // Badges & Counters
+    const qCount = status.quarantine_count || 0;
+    $("ipsQuarantineCount").textContent = String(qCount);
+    $("badgeIps").textContent = String(qCount);
+    $("sbIpsText").textContent = `IPS: ${qCount} aislados (${isAct ? "Firewall Activo" : "Monitor"})`;
+
+    renderIpsQuarantine();
+    renderIpsHistory();
+  } catch (err) {
+    showError(err);
+  }
+}
+
+function renderIpsQuarantine() {
+  const body = $("ipsQuarantineBody");
+  body.replaceChildren();
+
+  const activeRecords = state.ipsQuarantine.filter((r) => r.active);
+  if (activeRecords.length === 0) {
+    body.innerHTML = `<tr><td colspan="8" class="empty-state">No hay hosts en cuarentena actualmente. La red se encuentra protegida.</td></tr>`;
+    return;
+  }
+
+  const now = Date.now() / 1000;
+  for (const r of activeRecords) {
+    const tr = document.createElement("tr");
+    const blockedAgo = formatTimeAgo(r.blocked_at);
+    let expiresText = "Permanente";
+    if (r.expires_at > 0) {
+      const remainingSec = Math.max(0, Math.round(r.expires_at - now));
+      expiresText = remainingSec > 0 ? `${remainingSec}s (${Math.round(remainingSec / 60)}m)` : "Expirado";
+    }
+
+    const isCrit = (r.severity || "high").toLowerCase() === "critical";
+    tr.innerHTML = `
+      <td><code>${escapeHtml(r.ip)}</code></td>
+      <td><code>${escapeHtml(r.mac || "—")}</code></td>
+      <td><strong>${escapeHtml(r.reason)}</strong></td>
+      <td><span class="status-badge ${isCrit ? "badge-rogue" : "badge-unknown"}">${escapeHtml((r.severity || "HIGH").toUpperCase())}</span></td>
+      <td>${blockedAgo}</td>
+      <td>${expiresText}</td>
+      <td><span class="tag-hint">${r.blocked_packets || 0} tramas</span></td>
+      <td>
+        <button class="action-btn-mini success btn-unblock" data-ip="${escapeHtml(r.ip)}">Desbloquear</button>
+      </td>
+    `;
+    body.appendChild(tr);
+  }
+}
+
+function renderIpsHistory() {
+  const body = $("ipsHistoryBody");
+  body.replaceChildren();
+
+  if (state.ipsHistory.length === 0) {
+    body.innerHTML = `<tr><td colspan="6" class="empty-state">Sin mitigaciones registradas recientemente.</td></tr>`;
+    return;
+  }
+
+  for (const h of state.ipsHistory) {
+    const tr = document.createElement("tr");
+    const time = h.timestamp ? new Date(h.timestamp * 1000).toLocaleTimeString() : "—";
+    const actionPretty = {
+      host_quarantine: "Aislamiento de Host",
+      quarantine_removed: "Liberación de Cuarentena",
+      quarantine_expired: "Expiración TTL",
+    }[h.action_type] || h.action_type;
+
+    tr.innerHTML = `
+      <td>${time}</td>
+      <td><strong>${escapeHtml(actionPretty)}</strong></td>
+      <td><code>${escapeHtml(h.target_ip)}</code></td>
+      <td>${escapeHtml(h.reason)}</td>
+      <td><span class="tag-hint">${escapeHtml(h.details || "Firewall OS / Drop")}</span></td>
+      <td><span class="status-badge ${h.success ? "badge-auth" : "badge-rogue"}">${h.success ? "ÉXITO" : "FALLO"}</span></td>
+    `;
+    body.appendChild(tr);
+  }
+}
+
+async function setIpsMode(mode) {
+  await api("/api/v1/ips/config", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ mode }),
+  });
+  await loadIpsData();
+}
+
+async function setIpsAutoBlock(autoBlock) {
+  await api("/api/v1/ips/config", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ auto_block: autoBlock }),
+  });
+  await loadIpsData();
+}
+
+async function unblockIp(ip) {
+  if (!ip) return;
+  await api("/api/v1/ips/unblock", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ ip }),
+  });
+  await loadIpsData();
+}
+
+// ==========================================================================
+// NAC (NETWORK ACCESS CONTROL) FUNCTIONS
+// ==========================================================================
+async function loadNacData() {
+  try {
+    const [devData, alertData] = await Promise.all([
+      api("/api/v1/nac/devices"),
+      api("/api/v1/nac/alerts?limit=50"),
+    ]);
+
+    state.nacDevices = devData.devices || [];
+    state.nacSummary = devData.summary || {};
+    state.nacAlerts = alertData.alerts || [];
+
+    const s = state.nacSummary;
+    $("nacStatTotal").textContent = String(s.total_devices || 0);
+    $("nacStatAuth").textContent = String(s.authorized || 0);
+    $("nacStatUnknown").textContent = String(s.unknown || 0);
+    $("nacStatRogue").textContent = String(s.rogue || 0);
+    $("nacStatQuar").textContent = String(s.quarantined || 0);
+
+    $("badgeNac").textContent = String(s.total_devices || 0);
+    $("sbNacText").textContent = `NAC: ${s.total_devices || 0} dispositivos (${s.rogue || 0} rogue)`;
+
+    renderNacDevices();
+    renderNacAlerts();
+  } catch (err) {
+    showError(err);
+  }
+}
+
+async function loadNacSummary() {
+  try {
+    const res = await api("/api/v1/nac/summary");
+    const s = res.summary || {};
+    state.nacSummary = s;
+    $("nacStatTotal").textContent = String(s.total_devices || 0);
+    $("nacStatAuth").textContent = String(s.authorized || 0);
+    $("nacStatUnknown").textContent = String(s.unknown || 0);
+    $("nacStatRogue").textContent = String(s.rogue || 0);
+    $("nacStatQuar").textContent = String(s.quarantined || 0);
+    $("badgeNac").textContent = String(s.total_devices || 0);
+    $("sbNacText").textContent = `NAC: ${s.total_devices || 0} dispositivos (${s.rogue || 0} rogue)`;
+  } catch (_e) {}
+}
+
+function renderNacDevices() {
+  const body = $("nacDevicesBody");
+  body.replaceChildren();
+
+  const q = state.nacSearchQuery.trim().toLowerCase();
+  const filterStatus = state.nacFilterStatus;
+
+  const filtered = state.nacDevices.filter((d) => {
+    if (filterStatus !== "all" && d.status !== filterStatus) return false;
+    if (q) {
+      const match =
+        d.mac.toLowerCase().includes(q) ||
+        (d.current_ip && d.current_ip.toLowerCase().includes(q)) ||
+        (d.vendor && d.vendor.toLowerCase().includes(q)) ||
+        (d.hostname && d.hostname.toLowerCase().includes(q)) ||
+        (d.os_hint && d.os_hint.toLowerCase().includes(q));
+      if (!match) return false;
+    }
+    return true;
+  });
+
+  if (filtered.length === 0) {
+    body.innerHTML = `<tr><td colspan="8" class="empty-state">No hay dispositivos que coincidan con el filtro actual.</td></tr>`;
+    return;
+  }
+
+  for (const d of filtered) {
+    const tr = document.createElement("tr");
+    const ipStr = d.current_ip || (d.ips && d.ips.length ? d.ips[d.ips.length - 1] : "—");
+    const traffic = `${d.packets_count || 1} tramas · ${formatBytes(d.bytes_count || 0)}`;
+
+    let statusBadgeClass = "badge-unknown";
+    if (d.status === "authorized") statusBadgeClass = "badge-auth";
+    else if (d.status === "rogue") statusBadgeClass = "badge-rogue";
+    else if (d.status === "quarantined") statusBadgeClass = "badge-quar";
+
+    tr.innerHTML = `
+      <td><code>${escapeHtml(d.mac)}</code></td>
+      <td><span class="vendor-chip">${escapeHtml(d.vendor || "Desconocido")}</span></td>
+      <td><code>${escapeHtml(ipStr)}</code></td>
+      <td>
+        <span>${escapeHtml(d.hostname || "—")}</span>
+        <button class="action-btn-mini btn-nac-rename" data-mac="${escapeHtml(d.mac)}" data-name="${escapeHtml(d.hostname || "")}" title="Asignar alias personalizado">✏️</button>
+      </td>
+      <td><span class="os-chip">${escapeHtml(d.os_hint || "Desconocido")}</span></td>
+      <td>${traffic}</td>
+      <td><span class="status-badge ${statusBadgeClass}">${escapeHtml(d.status.toUpperCase())}</span></td>
+      <td>
+        ${d.status !== "authorized" ? `<button class="action-btn-mini success btn-nac-auth" data-mac="${escapeHtml(d.mac)}">✓ Confiar</button>` : ""}
+        ${d.status !== "quarantined" ? `<button class="action-btn-mini danger btn-nac-quar" data-mac="${escapeHtml(d.mac)}">⛔ Aislar</button>` : ""}
+        ${d.status !== "rogue" ? `<button class="action-btn-mini danger btn-nac-rogue" data-mac="${escapeHtml(d.mac)}">⚠️ Rogue</button>` : ""}
+      </td>
+    `;
+    body.appendChild(tr);
+  }
+}
+
+function renderNacAlerts() {
+  const feed = $("nacAlertsFeed");
+  feed.replaceChildren();
+
+  if (state.nacAlerts.length === 0) {
+    feed.innerHTML = `<li class="empty-state">Sin alertas de acceso o suplantación registradas.</li>`;
+    return;
+  }
+
+  for (const a of state.nacAlerts) {
+    const li = document.createElement("li");
+    li.className = "anomaly-card";
+    const time = a.timestamp ? new Date(a.timestamp * 1000).toLocaleTimeString() : new Date().toLocaleTimeString();
+    const sev = (a.severity || "info").toUpperCase();
+
+    li.innerHTML = `
+      <div class="anomaly-head">
+        <strong class="anomaly-title">${escapeHtml(a.title)}</strong>
+        <span class="sev-tag">${escapeHtml(sev)}</span>
+      </div>
+      <div class="anomaly-desc">${escapeHtml(a.description)}</div>
+      <div class="anomaly-meta">
+        <span>Hora: ${time}</span>
+        <span>MAC: <code>${escapeHtml(a.mac || "—")}</code></span>
+        ${a.ip ? `<span>IP: <code>${escapeHtml(a.ip)}</code></span>` : ""}
+        <span>Evento: ${escapeHtml(a.event_type || "")}</span>
+      </div>
+    `;
+    feed.appendChild(li);
+  }
+}
+
+function formatTimeAgo(timestamp) {
+  if (!timestamp) return "—";
+  const sec = Math.max(0, Math.round(Date.now() / 1000 - timestamp));
+  if (sec < 60) return `Hace ${sec}s`;
+  if (sec < 3600) return `Hace ${Math.round(sec / 60)}m`;
+  return `Hace ${Math.round(sec / 3600)}h`;
 }
 
 function copyText(str, button, okLabel = "✓ Copiado") {
@@ -650,6 +949,161 @@ function setupEvents() {
     if (state.selectedDetail) copyText(JSON.stringify(state.selectedDetail, null, 2), e.target);
   });
 
+  // IPS Events
+  $("btnIpsModeMonitor").addEventListener("click", () => setIpsMode("monitor").catch(showError));
+  $("btnIpsModeActive").addEventListener("click", () => setIpsMode("active").catch(showError));
+  $("chkIpsAutoBlock").addEventListener("change", (e) => setIpsAutoBlock(e.target.checked).catch(showError));
+  $("btnIpsRefresh").addEventListener("click", () => loadIpsData().catch(showError));
+  $("btnIpsOpenManualBlock").addEventListener("click", () => $("modalIpsBlock").classList.remove("hidden"));
+  $("btnModalConfirmBlock").addEventListener("click", () => {
+    const ip = $("modalIpsBlockIp").value.trim();
+    const mac = $("modalIpsBlockMac").value.trim();
+    const reason = $("modalIpsBlockReason").value.trim() || "Aislamiento manual";
+    const duration = Number($("modalIpsBlockDuration").value);
+    if (!ip) return;
+    $("modalIpsBlock").classList.add("hidden");
+    api("/api/v1/ips/block", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ ip, mac, reason, duration_sec: duration }),
+    })
+      .then(() => loadIpsData())
+      .catch(showError);
+  });
+
+  $("btnIpsOpenWhitelist").addEventListener("click", () => {
+    $("modalIpsWhitelistArea").value = (state.ipsConfig.whitelist || []).join("\n");
+    $("modalIpsWhitelist").classList.remove("hidden");
+  });
+  $("btnModalSaveWhitelist").addEventListener("click", () => {
+    const lines = $("modalIpsWhitelistArea").value.split("\n").map((l) => l.trim()).filter(Boolean);
+    $("modalIpsWhitelist").classList.add("hidden");
+    api("/api/v1/ips/config", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ whitelist: lines }),
+    })
+      .then(() => loadIpsData())
+      .catch(showError);
+  });
+
+  $("ipsQuarantineBody").addEventListener("click", (e) => {
+    const btn = e.target.closest(".btn-unblock");
+    if (btn && btn.dataset.ip) {
+      unblockIp(btn.dataset.ip).catch(showError);
+    }
+  });
+
+  // NAC Events
+  $("btnNacRefresh").addEventListener("click", () => loadNacData().catch(showError));
+  $("btnNacOpenGatewayConfig").addEventListener("click", () => $("modalNacGateway").classList.remove("hidden"));
+  $("btnModalSaveGateway").addEventListener("click", () => {
+    const ip = $("modalNacGwIp").value.trim();
+    const mac = $("modalNacGwMac").value.trim();
+    $("modalNacGateway").classList.add("hidden");
+    api("/api/v1/nac/gateway", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ ip, mac }),
+    })
+      .then(() => loadNacData())
+      .catch(showError);
+  });
+
+  $("btnNacAuthorizeAll").addEventListener("click", () => {
+    const unknowns = state.nacDevices.filter((d) => d.status === "unknown");
+    if (unknowns.length === 0) return;
+    Promise.all(
+      unknowns.map((d) =>
+        api(`/api/v1/nac/devices/${encodeURIComponent(d.mac)}/authorize`, { method: "POST" })
+      )
+    )
+      .then(() => loadNacData())
+      .catch(showError);
+  });
+
+  for (const pill of document.querySelectorAll(".nac-status-pill")) {
+    pill.addEventListener("click", () => {
+      for (const p of document.querySelectorAll(".nac-status-pill")) p.classList.remove("active");
+      pill.classList.add("active");
+      state.nacFilterStatus = pill.dataset.status;
+      renderNacDevices();
+    });
+  }
+
+  $("nacSearchInput").addEventListener("input", (e) => {
+    state.nacSearchQuery = e.target.value;
+    renderNacDevices();
+  });
+
+  $("nacDevicesBody").addEventListener("click", (e) => {
+    const renameBtn = e.target.closest(".btn-nac-rename");
+    if (renameBtn) {
+      state.activeRenameMac = renameBtn.dataset.mac;
+      $("modalNacRenameMac").value = renameBtn.dataset.mac;
+      $("modalNacRenameName").value = renameBtn.dataset.name || "";
+      $("modalNacRename").classList.remove("hidden");
+      return;
+    }
+
+    const authBtn = e.target.closest(".btn-nac-auth");
+    if (authBtn) {
+      api(`/api/v1/nac/devices/${encodeURIComponent(authBtn.dataset.mac)}/authorize`, { method: "POST" })
+        .then(() => loadNacData())
+        .catch(showError);
+      return;
+    }
+
+    const quarBtn = e.target.closest(".btn-nac-quar");
+    if (quarBtn) {
+      api(`/api/v1/nac/devices/${encodeURIComponent(quarBtn.dataset.mac)}/quarantine`, { method: "POST" })
+        .then(() => {
+          loadNacData();
+          loadIpsData();
+        })
+        .catch(showError);
+      return;
+    }
+
+    const rogueBtn = e.target.closest(".btn-nac-rogue");
+    if (rogueBtn) {
+      api(`/api/v1/nac/devices/${encodeURIComponent(rogueBtn.dataset.mac)}/status`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ status: "rogue" }),
+      })
+        .then(() => loadNacData())
+        .catch(showError);
+      return;
+    }
+  });
+
+  $("btnModalSaveRename").addEventListener("click", () => {
+    const name = $("modalNacRenameName").value.trim();
+    $("modalNacRename").classList.add("hidden");
+    if (state.activeRenameMac) {
+      api(`/api/v1/nac/devices/${encodeURIComponent(state.activeRenameMac)}/rename`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ name }),
+      })
+        .then(() => loadNacData())
+        .catch(showError);
+    }
+  });
+
+  // IPS & NAC Menubar actions
+  $("menuIpsToggleMode").addEventListener("click", () => {
+    const newMode = state.ipsConfig.mode === "active" ? "monitor" : "active";
+    setIpsMode(newMode).catch(showError);
+  });
+  $("menuIpsManualBlock").addEventListener("click", () => $("modalIpsBlock").classList.remove("hidden"));
+  $("menuIpsWhitelist").addEventListener("click", () => $("btnIpsOpenWhitelist").click());
+  $("menuViewIps").addEventListener("click", () => showView("ips"));
+  $("menuNacGateway").addEventListener("click", () => $("modalNacGateway").classList.remove("hidden"));
+  $("menuNacAuthorizeAll").addEventListener("click", () => $("btnNacAuthorizeAll").click());
+  $("menuViewNac").addEventListener("click", () => showView("nac"));
+
   // Keyboard Navigation (Up / Down arrows to traverse packets)
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") {
@@ -768,7 +1222,13 @@ async function boot() {
   setInterval(() => {
     refreshStatus().catch(() => {});
     if (state.view === "stats") loadStats().catch(() => {});
+    if (state.view === "ips") loadIpsData().catch(() => {});
+    if (state.view === "nac") loadNacData().catch(() => {});
   }, 2000);
+
+  // 8. Cargar resúmenes iniciales de IPS y NAC para status bar
+  loadIpsData().catch(() => {});
+  loadNacData().catch(() => {});
 }
 
 boot().catch((err) => {

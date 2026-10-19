@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 GITHUB_REPO = "Esteban4-CRo/kuruta"
-CURRENT_VERSION = "0.3.0"
+CURRENT_VERSION = "0.3.5"
 
 # Map (platform, arch) -> asset name suffix used in GitHub release
 _PLATFORM_ASSET: dict[str, str] = {

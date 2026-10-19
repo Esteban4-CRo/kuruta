@@ -192,6 +192,11 @@ def create_app(
     if capture_engine is not None:
         capture.set_on_packet(persist_and_publish)
 
+    capture.ips().set_on_mitigation(lambda action: hub.publish({"type": "ips_mitigation", "action": action.to_dict()}))
+    capture.ips().set_on_quarantine(lambda record: hub.publish({"type": "ips_quarantine", "record": record.to_dict()}))
+    capture.nac().set_on_alert(lambda alert: hub.publish({"type": "nac_alert", "alert": alert.to_dict()}))
+    capture.nac().set_on_device(lambda device: hub.publish({"type": "nac_device", "device": device}))
+
     @asynccontextmanager
     async def lifespan(application: FastAPI) -> AsyncIterator[None]:
         """Create the SQLite schema before accepting requests."""
@@ -201,9 +206,9 @@ def create_app(
         application.state.capture.stop()
 
     app = FastAPI(
-        title="Kuruta IDS",
-        version="0.3.0",
-        description="Local IDS, packet sniffer, and anomaly console for Kuruta.",
+        title="Kuruta IDS / IPS / NAC",
+        version="0.3.5",
+        description="Enterprise network security suite: Sniffer, IDS, IPS active defense, and NAC asset control.",
         lifespan=lifespan,
     )
     app.state.store = store
@@ -384,6 +389,154 @@ def create_app(
                 await websocket.receive_text()
         except WebSocketDisconnect:
             websocket.app.state.hub.discard(websocket)
+
+    # -------------------------------------------------------------
+    # IPS (Intrusion Prevention System) Endpoints
+    # -------------------------------------------------------------
+    @app.get("/api/v1/ips/status")
+    def ips_status(request: Request) -> dict[str, object]:
+        """Return real-time IPS defense status, mode, and counters."""
+        return request.app.state.capture.ips().status()
+
+    @app.get("/api/v1/ips/quarantine")
+    def ips_quarantine(request: Request) -> dict[str, object]:
+        """List active and historical host quarantine records."""
+        return {"quarantine": request.app.state.capture.ips().list_quarantine()}
+
+    @app.get("/api/v1/ips/history")
+    def ips_history(
+        request: Request,
+        limit: Annotated[int, Query(ge=1, le=250)] = 50,
+    ) -> dict[str, object]:
+        """List audit log of defensive mitigation actions taken."""
+        return {"history": request.app.state.capture.ips().list_history(limit)}
+
+    @app.post("/api/v1/ips/config")
+    async def ips_config(request: Request) -> dict[str, object]:
+        """Update IPS defense parameters: mode, auto_block, duration, whitelist."""
+        body = await request.json()
+        cfg = request.app.state.capture.ips().update_config(
+            mode=body.get("mode"),
+            auto_block=body.get("auto_block"),
+            block_duration_sec=body.get("block_duration_sec"),
+            auto_rst_injection=body.get("auto_rst_injection"),
+            whitelist=body.get("whitelist"),
+        )
+        return {"config": cfg}
+
+    @app.post("/api/v1/ips/block")
+    async def ips_block(request: Request) -> dict[str, object]:
+        """Manually quarantine an IP address via firewall and drop engine."""
+        body = await request.json()
+        ip = str(body.get("ip", "")).strip()
+        reason = str(body.get("reason", "Manual administrative block")).strip()
+        duration = body.get("duration_sec")
+        if duration is not None:
+            try:
+                duration = int(duration)
+            except (ValueError, TypeError):
+                duration = None
+        record = request.app.state.capture.ips().block_ip(
+            ip=ip,
+            reason=reason,
+            severity="high",
+            duration_sec=duration,
+            mac=str(body.get("mac", "")),
+        )
+        if not record:
+            raise HTTPException(status_code=400, detail="Cannot block address (invalid or whitelisted).")
+        return {"quarantined": True, "record": record.to_dict()}
+
+    @app.post("/api/v1/ips/unblock")
+    async def ips_unblock(request: Request) -> dict[str, object]:
+        """Release an IP address from quarantine and delete firewall rules."""
+        body = await request.json()
+        ip = str(body.get("ip", "")).strip()
+        released = request.app.state.capture.ips().unblock_ip(ip)
+        return {"unblocked": released, "ip": ip}
+
+    # -------------------------------------------------------------
+    # NAC (Network Access Control) Endpoints
+    # -------------------------------------------------------------
+    @app.get("/api/v1/nac/devices")
+    def nac_devices(
+        request: Request,
+        status: str | None = None,
+    ) -> dict[str, object]:
+        """List profiled network devices with MAC OUI, OS fingerprint, and trust status."""
+        nac = request.app.state.capture.nac()
+        return {
+            "devices": nac.list_devices(status=status),
+            "summary": nac.summary(),
+        }
+
+    @app.get("/api/v1/nac/summary")
+    def nac_summary(request: Request) -> dict[str, object]:
+        """Return asset count distribution (authorized, unknown, rogue, quarantined)."""
+        return {"summary": request.app.state.capture.nac().summary()}
+
+    @app.get("/api/v1/nac/alerts")
+    def nac_alerts(
+        request: Request,
+        limit: Annotated[int, Query(ge=1, le=200)] = 50,
+    ) -> dict[str, object]:
+        """Return rogue device and gateway hijack alerts."""
+        return {"alerts": request.app.state.capture.nac().alerts(limit)}
+
+    @app.post("/api/v1/nac/devices/{mac}/authorize")
+    def nac_authorize(mac: str, request: Request) -> dict[str, object]:
+        """Mark a device as trusted/authorized."""
+        dev = request.app.state.capture.nac().authorize(mac)
+        if not dev:
+            raise HTTPException(status_code=404, detail="Device MAC not found.")
+        return {"authorized": True, "device": dev}
+
+    @app.post("/api/v1/nac/devices/{mac}/quarantine")
+    def nac_quarantine(mac: str, request: Request) -> dict[str, object]:
+        """Isolate a rogue device, marking it quarantined and blocking its IP in IPS."""
+        dev = request.app.state.capture.nac().quarantine(mac)
+        if not dev:
+            raise HTTPException(status_code=404, detail="Device MAC not found.")
+        # Also block current IP if present
+        if dev.get("current_ip"):
+            request.app.state.capture.ips().block_ip(
+                ip=dev["current_ip"],
+                mac=mac,
+                reason=f"NAC Device Quarantine ({dev.get('vendor', 'Unknown')})",
+                severity="critical",
+            )
+        return {"quarantined": True, "device": dev}
+
+    @app.post("/api/v1/nac/devices/{mac}/status")
+    async def nac_set_status(mac: str, request: Request) -> dict[str, object]:
+        """Set custom trust status for a device."""
+        body = await request.json()
+        new_status = str(body.get("status", "unknown")).lower()
+        if new_status not in {"authorized", "unknown", "rogue", "quarantined"}:
+            raise HTTPException(status_code=400, detail="Invalid status.")
+        dev = request.app.state.capture.nac().set_status(mac, new_status)  # type: ignore[arg-type]
+        if not dev:
+            raise HTTPException(status_code=404, detail="Device MAC not found.")
+        return {"device": dev}
+
+    @app.post("/api/v1/nac/devices/{mac}/rename")
+    async def nac_rename(mac: str, request: Request) -> dict[str, object]:
+        """Assign a friendly name or hostname to a device."""
+        body = await request.json()
+        name = str(body.get("name", "")).strip()
+        dev = request.app.state.capture.nac().rename_device(mac, name)
+        if not dev:
+            raise HTTPException(status_code=404, detail="Device MAC not found.")
+        return {"device": dev}
+
+    @app.post("/api/v1/nac/gateway")
+    async def nac_set_gateway(request: Request) -> dict[str, object]:
+        """Configure legitimate default gateway IP and MAC for spoof detection."""
+        body = await request.json()
+        ip = str(body.get("ip", "")).strip()
+        mac = str(body.get("mac", "")).strip()
+        request.app.state.capture.nac().set_gateway(ip, mac)
+        return {"gateway_ip": ip, "gateway_mac": mac}
 
     frontend_dir = bundled_frontend_directory()
     assets_dir = bundled_assets_directory()
