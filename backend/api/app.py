@@ -364,6 +364,105 @@ def create_app(
             headers={"Content-Disposition": "attachment; filename=kuruta-capture.pcap"},
         )
 
+    @app.get("/api/v1/sniffer/export.json")
+    def sniffer_export_json(request: Request) -> Response:
+        """Export all captured packets as a structured JSON file."""
+        import json as _json
+        from datetime import datetime as _dt
+        data = request.app.state.capture.list_packets(5000, 0, "")
+        packets = data.get("packets", [])
+        payload = _json.dumps({
+            "exported_at": _dt.utcnow().isoformat() + "Z",
+            "packet_count": len(packets),
+            "packets": packets,
+        }, indent=2, default=str).encode("utf-8")
+        return Response(
+            content=payload,
+            media_type="application/json",
+            headers={"Content-Disposition": "attachment; filename=kuruta-capture.json"},
+        )
+
+    @app.get("/api/v1/sniffer/export.csv")
+    def sniffer_export_csv(request: Request) -> Response:
+        """Export all captured packets as a UTF-8 CSV file (Excel-compatible)."""
+        import io as _io
+        import csv as _csv
+        data = request.app.state.capture.list_packets(5000, 0, "")
+        packets = data.get("packets", [])
+        buf = _io.StringIO()
+        writer = _csv.writer(buf)
+        writer.writerow(["No.", "Time (rel)", "Source", "Destination", "Protocol", "Length", "Info", "Flagged"])
+        for p in packets:
+            writer.writerow([
+                p.get("no", ""),
+                p.get("rel_time", ""),
+                p.get("src", ""),
+                p.get("dst", ""),
+                p.get("protocol", ""),
+                p.get("length", ""),
+                p.get("info", ""),
+                "yes" if p.get("flagged") else "no",
+            ])
+        payload = buf.getvalue().encode("utf-8-sig")  # BOM for Excel
+        return Response(
+            content=payload,
+            media_type="text/csv; charset=utf-8",
+            headers={"Content-Disposition": "attachment; filename=kuruta-capture.csv"},
+        )
+
+    @app.get("/api/v1/sniffer/export-anomalies.json")
+    def sniffer_export_anomalies(request: Request) -> Response:
+        """Export all IDS anomaly findings as JSON."""
+        import json as _json
+        from datetime import datetime as _dt
+        anomalies = request.app.state.capture.anomalies(500)
+        payload = _json.dumps({
+            "exported_at": _dt.utcnow().isoformat() + "Z",
+            "anomaly_count": len(anomalies),
+            "anomalies": anomalies,
+        }, indent=2, default=str).encode("utf-8")
+        return Response(
+            content=payload,
+            media_type="application/json",
+            headers={"Content-Disposition": "attachment; filename=kuruta-anomalies.json"},
+        )
+
+    @app.get("/api/v1/nac/export.json")
+    def nac_export_json(request: Request) -> Response:
+        """Export NAC device inventory as JSON."""
+        import json as _json
+        from datetime import datetime as _dt
+        nac = request.app.state.capture.nac()
+        devices = nac.list_devices()
+        summary = nac.summary()
+        payload = _json.dumps({
+            "exported_at": _dt.utcnow().isoformat() + "Z",
+            "summary": summary,
+            "devices": devices,
+        }, indent=2, default=str).encode("utf-8")
+        return Response(
+            content=payload,
+            media_type="application/json",
+            headers={"Content-Disposition": "attachment; filename=kuruta-nac-inventory.json"},
+        )
+
+    @app.get("/api/v1/ips/export.json")
+    def ips_export_json(request: Request) -> Response:
+        """Export IPS quarantine list and mitigation history as JSON."""
+        import json as _json
+        from datetime import datetime as _dt
+        ips = request.app.state.capture.ips()
+        payload = _json.dumps({
+            "exported_at": _dt.utcnow().isoformat() + "Z",
+            "quarantine": ips.list_quarantine(),
+            "history": ips.list_history(250),
+        }, indent=2, default=str).encode("utf-8")
+        return Response(
+            content=payload,
+            media_type="application/json",
+            headers={"Content-Disposition": "attachment; filename=kuruta-ips-report.json"},
+        )
+
     @app.post("/api/v1/sniffer/simulate")
     def sniffer_simulate(request: Request) -> dict[str, object]:
         packets = request.app.state.capture.simulate_traffic()

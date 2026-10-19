@@ -3,26 +3,62 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Kuruta IDS · Network Analyzer & Sniffer</title>
+    <title>Kuruta IDS · Network Security Suite</title>
+    <meta name="description" content="Kuruta — Suite de seguridad de red con Sniffer, IDS, IPS activo y NAC Zero-Trust." />
     <link rel="icon" href="/assets/kuruta-logo.png" />
     <link rel="stylesheet" href="/static/styles.css" />
+    <!-- Inline SVG icon sprite for zero-dep icons -->
+    <svg xmlns="http://www.w3.org/2000/svg" style="display:none">
+      <symbol id="ic-play"       viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></symbol>
+      <symbol id="ic-stop"       viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/></symbol>
+      <symbol id="ic-restart"    viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></symbol>
+      <symbol id="ic-settings"   viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></symbol>
+      <symbol id="ic-folder"     viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></symbol>
+      <symbol id="ic-save"       viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></symbol>
+      <symbol id="ic-trash"      viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></symbol>
+      <symbol id="ic-zap"        viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></symbol>
+      <symbol id="ic-scroll"     viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></symbol>
+      <symbol id="ic-x"          viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></symbol>
+      <symbol id="ic-arrow-r"    viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></symbol>
+      <symbol id="ic-search"     viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></symbol>
+      <symbol id="ic-shield"     viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></symbol>
+      <symbol id="ic-globe"      viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></symbol>
+      <symbol id="ic-book"       viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></symbol>
+      <symbol id="ic-info"       viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></symbol>
+      <symbol id="ic-maximize"   viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></symbol>
+      <symbol id="ic-minimize"   viewBox="0 0 24 24"><path d="M8 3v3a2 2 0 0 1-2 2H3"/><path d="M21 8h-3a2 2 0 0 1-2-2V3"/><path d="M3 16h3a2 2 0 0 1 2 2v3"/><path d="M16 21v-3a2 2 0 0 1 2-2h3"/></symbol>
+      <symbol id="ic-download"   viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></symbol>
+      <symbol id="ic-file-text"  viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></symbol>
+      <symbol id="ic-table"      viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M3 15h18"/><path d="M9 3v18"/></symbol>
+      <symbol id="ic-code"       viewBox="0 0 24 24"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></symbol>
+      <symbol id="ic-edit"       viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></symbol>
+      <symbol id="ic-lock"       viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></symbol>
+      <symbol id="ic-upload"     viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></symbol>
+      <symbol id="ic-refresh"    viewBox="0 0 24 24"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3"/></symbol>
+      <symbol id="ic-check"      viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></symbol>
+      <symbol id="ic-alert-tri"  viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></symbol>
+      <symbol id="ic-ban"        viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></symbol>
+      <symbol id="ic-git-commit" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><line x1="1.05" y1="12" x2="7" y2="12"/><line x1="17.01" y1="12" x2="22.96" y2="12"/></symbol>
+    </svg>
   </head>
   <body>
-    <!-- 1. MENÚ SUPERIOR ESTILO WIRESHARK -->
+    <!-- 1. MENUBAR -->
     <nav class="menubar" aria-label="Menú principal">
       <div class="menu-brand">
-        <img src="/assets/kuruta-logo.png" alt="Logo Kuruta" class="menu-logo" onerror="this.onerror=null; this.src='assets/kuruta-logo.png'; if(!this.complete||this.naturalWidth===0){this.src='kuruta-logo.png';}" />
+        <img src="/assets/kuruta-logo.png" alt="Logo Kuruta" class="menu-logo" onerror="this.onerror=null;this.src='assets/kuruta-logo.png';" />
         <strong>KURUTA IDS</strong>
       </div>
+
       <div class="menu-item" tabindex="0">
         <span>Archivo</span>
         <div class="dropdown">
-          <button type="button" id="menuOpenPcap">Abrir archivo PCAP... <kbd>Ctrl+O</kbd></button>
-          <a id="menuExportPcap" href="/api/v1/sniffer/export.pcap" download="kuruta-capture.pcap">Guardar PCAP... <kbd>Ctrl+S</kbd></a>
+          <button type="button" id="menuOpenPcap"><svg viewBox="0 0 24 24" width="12" height="12"><use href="#ic-folder"/></svg>Abrir PCAP... <kbd>Ctrl+O</kbd></button>
+          <button type="button" id="menuExportAll"><svg viewBox="0 0 24 24" width="12" height="12"><use href="#ic-save"/></svg>Exportar captura... <kbd>Ctrl+S</kbd></button>
           <hr />
-          <button type="button" id="menuClearCapture">Limpiar búfer de captura <kbd>Ctrl+W</kbd></button>
+          <button type="button" id="menuClearCapture"><svg viewBox="0 0 24 24" width="12" height="12"><use href="#ic-trash"/></svg>Limpiar búfer <kbd>Ctrl+W</kbd></button>
         </div>
       </div>
+
       <div class="menu-item" tabindex="0">
         <span>Edición</span>
         <div class="dropdown">
@@ -31,6 +67,7 @@
           <button type="button" id="menuCopyJson">Copiar paquete como JSON</button>
         </div>
       </div>
+
       <div class="menu-item" tabindex="0">
         <span>Ver</span>
         <div class="dropdown">
@@ -38,18 +75,22 @@
           <button type="button" id="menuZoomIn">Aumentar fuente <kbd>Ctrl++</kbd></button>
           <button type="button" id="menuZoomOut">Reducir fuente <kbd>Ctrl+-</kbd></button>
           <button type="button" id="menuZoomReset">Restablecer zoom</button>
+          <hr />
+          <button type="button" id="menuFullscreen">Pantalla Completa <kbd>F11</kbd></button>
         </div>
       </div>
+
       <div class="menu-item" tabindex="0">
         <span>Captura</span>
         <div class="dropdown">
-          <button type="button" id="menuStart">Iniciar captura <kbd>Ctrl+E</kbd></button>
-          <button type="button" id="menuStop">Detener captura</button>
-          <button type="button" id="menuRestart">Reiniciar captura</button>
+          <button type="button" id="menuStart"><svg viewBox="0 0 24 24" width="12" height="12"><use href="#ic-play"/></svg>Iniciar captura <kbd>Ctrl+E</kbd></button>
+          <button type="button" id="menuStop"><svg viewBox="0 0 24 24" width="12" height="12"><use href="#ic-stop"/></svg>Detener captura</button>
+          <button type="button" id="menuRestart"><svg viewBox="0 0 24 24" width="12" height="12"><use href="#ic-restart"/></svg>Reiniciar captura</button>
           <hr />
-          <button type="button" id="menuOptions">Opciones de interfaz y BPF...</button>
+          <button type="button" id="menuOptions"><svg viewBox="0 0 24 24" width="12" height="12"><use href="#ic-settings"/></svg>Opciones de interfaz y BPF...</button>
         </div>
       </div>
+
       <div class="menu-item" tabindex="0">
         <span>Analizar</span>
         <div class="dropdown">
@@ -58,6 +99,7 @@
           <button type="button" id="menuExpressionBuilder">Asistente de filtros...</button>
         </div>
       </div>
+
       <div class="menu-item" tabindex="0">
         <span>Estadísticas</span>
         <div class="dropdown">
@@ -65,59 +107,68 @@
           <button type="button" id="menuViewEndpoints">Top Endpoints (Direcciones IP)</button>
         </div>
       </div>
+
       <div class="menu-item" tabindex="0">
         <span>IDS / Detección</span>
         <div class="dropdown">
-          <button type="button" id="menuSimulate">⚡ Generar tráfico y anomalías de prueba</button>
+          <button type="button" id="menuSimulate"><svg viewBox="0 0 24 24" width="12" height="12"><use href="#ic-zap"/></svg>Generar tráfico y anomalías de prueba</button>
           <button type="button" id="menuViewAnomalies">Registro de anomalías heurísticas</button>
           <button type="button" id="menuViewAlerts">Alertas de motor de reglas</button>
         </div>
       </div>
+
       <div class="menu-item" tabindex="0">
         <span>IPS / Prevención</span>
         <div class="dropdown">
-          <button type="button" id="menuIpsToggleMode">Alternar Modo Defensivo (Monitor ↔ Activo)</button>
-          <button type="button" id="menuIpsManualBlock">Aislar IP en cuarentena...</button>
-          <button type="button" id="menuIpsWhitelist">Configurar Lista Blanca (Whitelist)...</button>
+          <button type="button" id="menuIpsToggleMode"><svg viewBox="0 0 24 24" width="12" height="12"><use href="#ic-shield"/></svg>Alternar Modo Defensivo (Monitor / Activo)</button>
+          <button type="button" id="menuIpsManualBlock"><svg viewBox="0 0 24 24" width="12" height="12"><use href="#ic-ban"/></svg>Aislar IP en cuarentena...</button>
+          <button type="button" id="menuIpsWhitelist"><svg viewBox="0 0 24 24" width="12" height="12"><use href="#ic-check"/></svg>Configurar Lista Blanca...</button>
           <hr />
           <button type="button" id="menuViewIps">Panel de Defensa Activa e Historial</button>
         </div>
       </div>
+
       <div class="menu-item" tabindex="0">
         <span>NAC / Dispositivos</span>
         <div class="dropdown">
-          <button type="button" id="menuNacGateway">Configurar Gateway Legítimo...</button>
-          <button type="button" id="menuNacAuthorizeAll">Verificar y autorizar dispositivos</button>
+          <button type="button" id="menuNacGateway"><svg viewBox="0 0 24 24" width="12" height="12"><use href="#ic-globe"/></svg>Configurar Gateway Legítimo...</button>
+          <button type="button" id="menuNacAuthorizeAll"><svg viewBox="0 0 24 24" width="12" height="12"><use href="#ic-check"/></svg>Verificar y autorizar dispositivos</button>
           <hr />
           <button type="button" id="menuViewNac">Inventario Zero-Trust y Alertas Rogue</button>
         </div>
       </div>
+
       <div class="menu-item" tabindex="0">
         <span>Ayuda</span>
         <div class="dropdown">
-          <a href="/manual" target="_blank" id="menuManual">📖 Manual de Usuario (Filtros, Atajos, IDS)</a>
+          <a href="/manual" target="_blank" id="menuManual"><svg viewBox="0 0 24 24" width="12" height="12"><use href="#ic-book"/></svg>Manual de Usuario</a>
           <hr />
-          <button type="button" id="menuAbout">Acerca de Kuruta IDS v0.3</button>
+          <button type="button" id="menuAbout"><svg viewBox="0 0 24 24" width="12" height="12"><use href="#ic-info"/></svg>Acerca de Kuruta IDS v0.3</button>
         </div>
       </div>
+
       <div class="menu-spacer"></div>
       <div class="menu-status-pill" id="wsPill">WS: Conectando...</div>
+      <button type="button" id="btnFullscreen" class="menu-fullscreen-btn" title="Pantalla Completa (F11)">
+        <svg viewBox="0 0 24 24" width="11" height="11"><use id="fullscreenIcon" href="#ic-maximize"/></svg>
+        <span id="fullscreenLabel">Ampliar</span>
+      </button>
     </nav>
 
-    <!-- 2. BARRA DE HERRAMIENTAS PRINCIPAL (ICONOS WIRESHARK EN BLANCO Y NEGRO) -->
+    <!-- 2. TOOLBAR -->
     <section class="toolbar" aria-label="Barra de herramientas">
       <div class="tool-group">
         <button id="tbStart" class="tool-btn" title="Iniciar captura en vivo">
-          <span class="tool-icon icon-play">▶</span> Iniciar
+          <span class="tool-icon icon-play"><svg viewBox="0 0 24 24"><use href="#ic-play"/></svg></span> Iniciar
         </button>
         <button id="tbStop" class="tool-btn" title="Detener captura" disabled>
-          <span class="tool-icon icon-stop">■</span> Detener
+          <span class="tool-icon icon-stop"><svg viewBox="0 0 24 24"><use href="#ic-stop"/></svg></span> Detener
         </button>
         <button id="tbRestart" class="tool-btn" title="Reiniciar captura">
-          <span class="tool-icon">↻</span> Reiniciar
+          <span class="tool-icon"><svg viewBox="0 0 24 24"><use href="#ic-restart"/></svg></span> Reiniciar
         </button>
         <button id="tbOptions" class="tool-btn" title="Opciones de interfaz y filtro BPF">
-          <span class="tool-icon">⚙</span> Opciones
+          <span class="tool-icon"><svg viewBox="0 0 24 24"><use href="#ic-settings"/></svg></span> Opciones
         </button>
       </div>
 
@@ -125,92 +176,92 @@
 
       <div class="tool-group">
         <button id="tbOpenPcap" class="tool-btn" title="Abrir archivo PCAP local">
-          <span class="tool-icon">📁</span> Abrir PCAP
+          <span class="tool-icon"><svg viewBox="0 0 24 24"><use href="#ic-folder"/></svg></span> Abrir PCAP
         </button>
         <input type="file" id="pcapFileInput" accept=".pcap,.pcapng,.cap" style="display:none;" />
-        <a id="tbSavePcap" class="tool-btn" href="/api/v1/sniffer/export.pcap" download="kuruta-capture.pcap" title="Descargar búfer actual en PCAP">
-          <span class="tool-icon">💾</span> Guardar PCAP
-        </a>
+        <button id="tbSavePcap" class="tool-btn" title="Exportar captura en múltiples formatos">
+          <span class="tool-icon"><svg viewBox="0 0 24 24"><use href="#ic-save"/></svg></span> Exportar...
+        </button>
         <button id="tbClear" class="tool-btn" title="Limpiar todos los paquetes">
-          <span class="tool-icon">✕</span> Limpiar
+          <span class="tool-icon"><svg viewBox="0 0 24 24"><use href="#ic-trash"/></svg></span> Limpiar
         </button>
       </div>
 
       <div class="tool-sep"></div>
 
       <div class="tool-group">
-        <button id="tbSimulate" class="tool-btn highlight" title="Inyecta tráfico de prueba y ataques en memoria (funciona sin drivers ni Npcap)">
-          <span class="tool-icon">⚡</span> Tráfico de Prueba IDS
+        <button id="tbSimulate" class="tool-btn highlight" title="Inyecta tráfico de prueba y ataques en memoria">
+          <span class="tool-icon"><svg viewBox="0 0 24 24"><use href="#ic-zap"/></svg></span> Tráfico de Prueba IDS
         </button>
         <button id="tbAutoScroll" class="tool-btn active-toggle" title="Alternar auto-scroll al recibir paquetes">
-          <span class="tool-icon">⬇</span> Auto-scroll
+          <span class="tool-icon"><svg viewBox="0 0 24 24"><use href="#ic-scroll"/></svg></span> Auto-scroll
         </button>
       </div>
 
       <div class="tool-sep"></div>
 
-      <!-- SELECTOR RÁPIDO DE INTERFAZ -->
+      <!-- SELECTOR DE INTERFAZ -->
       <div class="tool-iface-wrap">
         <label for="ifaceSelect">NIC:</label>
         <select id="ifaceSelect" title="Interfaz de red para capturar"></select>
       </div>
     </section>
 
-    <!-- BANNER DE ACTUALIZACIÓN DISPONIBLE -->
+    <!-- UPDATE BANNER -->
     <div id="updateBanner" class="update-banner hidden">
-      <span class="update-banner-icon">↑</span>
+      <svg viewBox="0 0 24 24" width="16" height="16" style="fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round"><use href="#ic-upload"/></svg>
       <span id="updateBannerText">Nueva versión disponible</span>
       <span id="updateBannerNotes" class="update-banner-notes"></span>
       <div class="update-banner-actions">
-        <button id="btnUpdate" class="update-btn-primary">⬆ Actualizar ahora</button>
-        <button id="btnUpdateDismiss" class="update-btn-dismiss">✕ Ignorar</button>
+        <button id="btnUpdate" class="update-btn-primary">Actualizar ahora</button>
+        <button id="btnUpdateDismiss" class="update-btn-dismiss">Ignorar</button>
       </div>
     </div>
 
-    <!-- 3. BARRA DE FILTRO DE VISUALIZACIÓN WIRESHARK -->
+    <!-- 3. FILTER BAR & TABS -->
     <section class="display-filter-bar" aria-label="Filtro de visualización">
-      <span class="filter-label">Aplicar filtro:</span>
+      <span class="filter-label">Filtro:</span>
       <div class="filter-box" id="filterBox">
         <input
           id="displayFilter"
-          placeholder="Ej: tcp · dns · ip.addr == 192.168.1.1 · tcp.port == 443 · http or tls · flagged"
+          placeholder="tcp · dns · ip.addr == 192.168.1.1 · tcp.port == 443 · flagged"
           autocomplete="off"
           spellcheck="false"
         />
-        <button id="btnFilterClear" class="filter-btn-clear" title="Borrar filtro">✕</button>
+        <button id="btnFilterClear" class="filter-btn-clear" title="Borrar filtro">
+          <svg viewBox="0 0 24 24"><use href="#ic-x"/></svg>
+        </button>
       </div>
-      <button id="btnFilterApply" class="filter-btn-apply" title="Aplicar filtro de visualización">➔ Aplicar</button>
-      <button id="btnFilterExpr" class="filter-btn-expr" title="Asistente de expresiones Wireshark">Expresión...</button>
+      <button id="btnFilterApply" class="filter-btn-apply" title="Aplicar filtro">
+        <svg viewBox="0 0 24 24" width="12" height="12" style="fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;display:inline-block;vertical-align:middle"><use href="#ic-arrow-r"/></svg>
+        Aplicar
+      </button>
+      <button id="btnFilterExpr" class="filter-btn-expr" title="Asistente de expresiones">Expresión...</button>
 
-      <!-- PESTAÑAS DE VISTA PROFESIONAL -->
+      <!-- TABS -->
       <div class="view-tabs">
         <button type="button" class="tab-btn active" data-view="capture">
           Sniffer <span id="badgePackets" class="badge">0</span>
         </button>
         <button type="button" class="tab-btn" data-view="anomalies">
-          Anomalías IDS <span id="badgeAnomalies" class="badge alert-badge">0</span>
+          IDS / Anomalías <span id="badgeAnomalies" class="badge alert-badge">0</span>
         </button>
         <button type="button" class="tab-btn" data-view="ips">
-          🛡️ IPS / Firewall <span id="badgeIps" class="badge alert-badge">0</span>
+          <svg viewBox="0 0 24 24" width="11" height="11" style="fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;display:inline-block;vertical-align:middle"><use href="#ic-shield"/></svg>
+          IPS / Firewall <span id="badgeIps" class="badge alert-badge">0</span>
         </button>
         <button type="button" class="tab-btn" data-view="nac">
-          🌐 NAC / Dispositivos <span id="badgeNac" class="badge">0</span>
+          <svg viewBox="0 0 24 24" width="11" height="11" style="fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;display:inline-block;vertical-align:middle"><use href="#ic-globe"/></svg>
+          NAC / Dispositivos <span id="badgeNac" class="badge">0</span>
         </button>
-        <button type="button" class="tab-btn" data-view="stats">
-          Estadísticas & Flujos
-        </button>
-        <button type="button" class="tab-btn" data-view="rules">
-          Reglas de Detección
-        </button>
-        <button type="button" class="tab-btn" data-view="host">
-          Host
-        </button>
+        <button type="button" class="tab-btn" data-view="stats">Estadísticas</button>
+        <button type="button" class="tab-btn" data-view="rules">Reglas de Detección</button>
+        <button type="button" class="tab-btn" data-view="host">Host</button>
       </div>
     </section>
 
-    <!-- 4. VISTA 1: WIRESHARK 3-PANE LAYOUT -->
+    <!-- 4. SNIFFER VIEW -->
     <main id="view-capture" class="view-panel">
-      <!-- PANE 1: LISTA DE PAQUETES -->
       <div class="packet-list-pane" id="packetListPane">
         <table class="ws-table" id="packetTable">
           <thead>
@@ -220,7 +271,7 @@
               <th class="th-src">Origen</th>
               <th class="th-dst">Destino</th>
               <th class="th-proto">Protocolo</th>
-              <th class="th-len">Longitud</th>
+              <th class="th-len">Long.</th>
               <th class="th-info">Información</th>
             </tr>
           </thead>
@@ -228,7 +279,6 @@
         </table>
       </div>
 
-      <!-- BARRA DE ESTADO DEL PAQUETE SELECCIONADO -->
       <div class="packet-toolbar">
         <span id="selectedPacketLabel" class="selected-label">Ningún paquete seleccionado. Haz clic en una fila para diseccionar.</span>
         <div class="packet-toolbar-actions">
@@ -238,30 +288,29 @@
         </div>
       </div>
 
-      <!-- PANES 2 Y 3: DETALLE DE CAPAS Y VOLCADO HEX -->
       <div class="details-hex-split" id="detailsHexSplit">
         <div class="tree-pane">
-          <div class="pane-title">Árbol de Disección de Protocolos (Capas L2 / L3 / L4 / L7)</div>
+          <div class="pane-title">Árbol de Disección de Protocolos (L2 / L3 / L4 / L7)</div>
           <div id="treeContainer" class="tree-container">
             <div class="empty-state">Selecciona un paquete de la lista superior para inspeccionar sus capas de red.</div>
           </div>
         </div>
         <div class="hex-pane">
-          <div class="pane-title">Volcado de Bytes Hexadecimal y ASCII</div>
+          <div class="pane-title">Volcado de Bytes — Hexadecimal y ASCII</div>
           <pre id="hexContainer" class="hex-container">0000  -- -- -- -- -- -- -- --  -- -- -- -- -- -- -- --  ........ ........</pre>
         </div>
       </div>
     </main>
 
-    <!-- 5. VISTA 2: CENTRO DE ANOMALÍAS IDS -->
+    <!-- 5. IDS ANOMALIES VIEW -->
     <main id="view-anomalies" class="view-panel hidden">
       <div class="panel-header">
         <div class="panel-header-title">
           <h2>Centro de Detección de Anomalías Heurísticas</h2>
-          <p>Señales de comportamiento anómalo correlacionadas en tiempo real: escaneos de puertos, inundaciones SYN/ICMP, túneles DNS con alta entropía, conflictos ARP y combinaciones de flags ilegales (RFC 793).</p>
+          <p>Señales de comportamiento anómalo correlacionadas en tiempo real: escaneos de puertos, inundaciones SYN/ICMP, túneles DNS, conflictos ARP y flags TCP ilegales (RFC 793).</p>
         </div>
         <div class="filter-pills-row">
-          <span>Filtrar severidad:</span>
+          <span>Severidad:</span>
           <button type="button" class="sev-pill active" data-sev="all">Todas</button>
           <button type="button" class="sev-pill" data-sev="critical">Críticas</button>
           <button type="button" class="sev-pill" data-sev="high">Altas</button>
@@ -273,7 +322,7 @@
       </div>
     </main>
 
-    <!-- 6. VISTA 3: ESTADÍSTICAS & CONVERSACIONES -->
+    <!-- 6. STATS VIEW -->
     <main id="view-stats" class="view-panel hidden">
       <div class="stats-overview-grid" id="statsCards"></div>
       <div class="stats-tables-grid">
@@ -285,9 +334,7 @@
           <div class="pane-title">Matriz de Conversaciones (Flujos A ↔ B)</div>
           <div class="stat-box-body table-wrap">
             <table class="stat-table">
-              <thead>
-                <tr><th>Proto</th><th>Extremo A</th><th>Extremo B</th><th>Paquetes</th><th>Volumen</th></tr>
-              </thead>
+              <thead><tr><th>Proto</th><th>Extremo A</th><th>Extremo B</th><th>Paquetes</th><th>Volumen</th></tr></thead>
               <tbody id="convosTableBody"></tbody>
             </table>
           </div>
@@ -296,9 +343,7 @@
           <div class="pane-title">Endpoints Más Activos (Direcciones IP)</div>
           <div class="stat-box-body table-wrap">
             <table class="stat-table">
-              <thead>
-                <tr><th>Dirección IP / Endpoint</th><th>Paquetes</th><th>Volumen</th></tr>
-              </thead>
+              <thead><tr><th>Dirección IP / Endpoint</th><th>Paquetes</th><th>Volumen</th></tr></thead>
               <tbody id="endpointsTableBody"></tbody>
             </table>
           </div>
@@ -306,11 +351,13 @@
       </div>
     </main>
 
-    <!-- 7. VISTA 4: REGLAS DE DETECCIÓN -->
+    <!-- 7. RULES VIEW -->
     <main id="view-rules" class="view-panel hidden">
       <div class="panel-header">
-        <h2>Reglas de Detección Activas en el Motor Local</h2>
-        <p>Reglas analíticas cargadas desde el directorio de reglas locales para detección de patrones de intrusión.</p>
+        <div class="panel-header-title">
+          <h2>Reglas de Detección Activas en el Motor Local</h2>
+          <p>Reglas analíticas cargadas desde el directorio de reglas locales para detección de patrones de intrusión.</p>
+        </div>
       </div>
       <div class="rules-container" id="rulesContainer">
         <div class="rule-card">
@@ -340,23 +387,25 @@
       </div>
     </main>
 
-    <!-- 8. VISTA 5: TELEMETRÍA DEL HOST -->
+    <!-- 8. HOST TELEMETRY VIEW -->
     <main id="view-host" class="view-panel hidden">
       <div class="panel-header">
-        <h2>Telemetría del Host (Agente Kuruta)</h2>
-        <p>Eventos de procesos locales recolectados por el agente Rust.</p>
+        <div class="panel-header-title">
+          <h2>Telemetría del Host (Agente Kuruta)</h2>
+          <p>Eventos de procesos locales recolectados por el agente Rust.</p>
+        </div>
       </div>
       <div class="anomalies-scroll">
         <ul id="hostFeed" class="anomalies-list"></ul>
       </div>
     </main>
 
-    <!-- 9. VISTA 6: SISTEMA DE PREVENCIÓN DE INTRUSIONES (IPS) -->
+    <!-- 9. IPS VIEW -->
     <main id="view-ips" class="view-panel hidden">
       <div class="panel-header ips-header">
         <div class="panel-header-title">
-          <h2>🛡️ Prevención de Intrusiones (IPS) & Mitigación Activa de Firewall</h2>
-          <p>Defensa activa perimetral: Aislamiento automático de atacantes, bloqueo de tráfico anómalo en memoria y sincronización de reglas dinámicas con el Firewall del sistema operativo (WFP / netsh / iptables).</p>
+          <h2>Prevención de Intrusiones (IPS) &amp; Mitigación Activa de Firewall</h2>
+          <p>Defensa activa perimetral: aislamiento automático de atacantes, bloqueo de tráfico anómalo y sincronización de reglas dinámicas con el Firewall del SO (WFP / netsh / iptables).</p>
         </div>
         <div class="ips-toolbar-controls">
           <div class="ips-mode-switch">
@@ -368,22 +417,27 @@
           </div>
           <label class="ips-checkbox-label">
             <input type="checkbox" id="chkIpsAutoBlock" checked />
-            <span>Auto-cuarentena en severidad Alta / Crítica</span>
+            <span>Auto-cuarentena Alta / Crítica</span>
           </label>
           <div class="ips-actions-cluster">
-            <button type="button" id="btnIpsOpenManualBlock" class="btn btn-sm btn-danger">+ Aislar IP Manualmente</button>
-            <button type="button" id="btnIpsOpenWhitelist" class="btn btn-sm">⚙️ Lista Blanca</button>
-            <button type="button" id="btnIpsRefresh" class="btn btn-sm">↻ Actualizar</button>
+            <button type="button" id="btnIpsOpenManualBlock" class="btn btn-sm btn-danger">+ Aislar IP</button>
+            <button type="button" id="btnIpsOpenWhitelist" class="btn btn-sm">
+              <svg viewBox="0 0 24 24" width="11" height="11" style="fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;display:inline-block;vertical-align:middle"><use href="#ic-settings"/></svg>
+              Lista Blanca
+            </button>
+            <button type="button" id="btnIpsRefresh" class="btn btn-sm">
+              <svg viewBox="0 0 24 24" width="11" height="11" style="fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;display:inline-block;vertical-align:middle"><use href="#ic-refresh"/></svg>
+              Actualizar
+            </button>
           </div>
         </div>
       </div>
 
       <div class="ips-grid-container">
-        <!-- SECCIÓN CUARENTENA ACTIVA -->
         <div class="ips-box ips-quarantine-pane">
           <div class="pane-title flex-title">
             <span>Hosts en Cuarentena Activa (<strong id="ipsQuarantineCount">0</strong>)</span>
-            <span class="tag-hint">Aislamiento por Firewall & Drop Engine</span>
+            <span class="tag-hint">Aislamiento por Firewall &amp; Drop Engine</span>
           </div>
           <div class="table-wrap ips-table-wrap">
             <table class="ws-table ips-table">
@@ -406,10 +460,9 @@
           </div>
         </div>
 
-        <!-- SECCIÓN AUDITORÍA DE MITIGACIÓN -->
         <div class="ips-box ips-history-pane">
           <div class="pane-title flex-title">
-            <span>Auditoría de Acciones Defensivas & Firewall</span>
+            <span>Auditoría de Acciones Defensivas &amp; Firewall</span>
             <span class="tag-hint">Registro de mitigaciones automáticas y manuales</span>
           </div>
           <div class="table-wrap ips-table-wrap">
@@ -433,21 +486,29 @@
       </div>
     </main>
 
-    <!-- 10. VISTA 7: CONTROL DE ACCESO A LA RED (NAC) -->
+    <!-- 10. NAC VIEW -->
     <main id="view-nac" class="view-panel hidden">
       <div class="panel-header nac-header">
         <div class="panel-header-title">
-          <h2>🌐 Network Access Control (NAC) & Inventario Zero-Trust</h2>
-          <p>Identificación continua de dispositivos, análisis de fabricante (OUI), perfilado de sistema operativo (TTL), detección de Rogue Gateways (ARP Spoofing) y contención de intrusos.</p>
+          <h2>Network Access Control (NAC) &amp; Inventario Zero-Trust</h2>
+          <p>Identificación continua de dispositivos, análisis OUI, perfilado TTL, detección de Rogue Gateways y contención de intrusos.</p>
         </div>
         <div class="nac-top-actions">
-          <button type="button" id="btnNacOpenGatewayConfig" class="btn btn-sm">🛡️ Gateway Legítimo</button>
-          <button type="button" id="btnNacAuthorizeAll" class="btn btn-sm">✓ Autorizar Desconocidos</button>
-          <button type="button" id="btnNacRefresh" class="btn btn-sm">↻ Actualizar</button>
+          <button type="button" id="btnNacOpenGatewayConfig" class="btn btn-sm">
+            <svg viewBox="0 0 24 24" width="11" height="11" style="fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;display:inline-block;vertical-align:middle"><use href="#ic-shield"/></svg>
+            Gateway Legítimo
+          </button>
+          <button type="button" id="btnNacAuthorizeAll" class="btn btn-sm">
+            <svg viewBox="0 0 24 24" width="11" height="11" style="fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;display:inline-block;vertical-align:middle"><use href="#ic-check"/></svg>
+            Autorizar Desconocidos
+          </button>
+          <button type="button" id="btnNacRefresh" class="btn btn-sm">
+            <svg viewBox="0 0 24 24" width="11" height="11" style="fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;display:inline-block;vertical-align:middle"><use href="#ic-refresh"/></svg>
+            Actualizar
+          </button>
         </div>
       </div>
 
-      <!-- MÉTRICAS DE RESUMEN NAC -->
       <div class="nac-summary-cards" id="nacSummaryCards">
         <div class="stat-metric nac-card-total"><span>Dispositivos Totales</span><b id="nacStatTotal">0</b></div>
         <div class="stat-metric nac-card-auth"><span>Autorizados</span><b id="nacStatAuth">0</b></div>
@@ -456,15 +517,14 @@
         <div class="stat-metric nac-card-quar"><span>En Cuarentena</span><b id="nacStatQuar">0</b></div>
       </div>
 
-      <!-- FILTROS Y BÚSQUEDA NAC -->
       <div class="nac-filter-bar">
         <div class="filter-pills-row">
-          <span>Filtrar estado:</span>
+          <span>Estado:</span>
           <button type="button" class="nac-status-pill active" data-status="all">Todos</button>
           <button type="button" class="nac-status-pill" data-status="authorized">Autorizados</button>
           <button type="button" class="nac-status-pill" data-status="unknown">Desconocidos</button>
-          <button type="button" class="nac-status-pill" data-status="rogue">Rogue / Amenazas</button>
-          <button type="button" class="nac-status-pill" data-status="quarantined">En Cuarentena</button>
+          <button type="button" class="nac-status-pill" data-status="rogue">Rogue</button>
+          <button type="button" class="nac-status-pill" data-status="quarantined">Cuarentena</button>
         </div>
         <div class="nac-search-wrap">
           <input id="nacSearchInput" placeholder="Buscar por MAC, IP, Fabricante o Hostname..." autocomplete="off" />
@@ -472,7 +532,6 @@
       </div>
 
       <div class="nac-grid-container">
-        <!-- TABLA DE DISPOSITIVOS -->
         <div class="nac-box nac-devices-pane">
           <div class="pane-title flex-title">
             <span>Inventario de Dispositivos Conectados</span>
@@ -499,27 +558,26 @@
           </div>
         </div>
 
-        <!-- FEED DE ALERTAS NAC -->
         <div class="nac-box nac-alerts-pane">
           <div class="pane-title flex-title">
-            <span>Alertas de Seguridad NAC (Rogue / Spoofing)</span>
-            <span class="tag-hint">Detección de Gateway impersonation y nuevos dispositivos</span>
+            <span>Alertas NAC (Rogue / Spoofing)</span>
+            <span class="tag-hint">Gateway impersonation y nuevos dispositivos</span>
           </div>
           <div class="nac-alerts-scroll">
             <ul id="nacAlertsFeed" class="anomalies-list">
-              <li class="empty-state">Sin alertas de acceso no autorizado registradas.</li>
+              <li class="empty-state">Sin alertas de acceso no autorizado.</li>
             </ul>
           </div>
         </div>
       </div>
     </main>
 
-    <!-- MODAL: OPCIONES DE CAPTURA (ESTILO WIRESHARK) -->
+    <!-- MODAL: OPCIONES DE CAPTURA -->
     <div id="modalOptions" class="modal-overlay hidden">
       <div class="modal-window">
         <div class="modal-titlebar">
           <span>Opciones de Captura de Kuruta</span>
-          <button type="button" class="modal-close" data-close="modalOptions">✕</button>
+          <button type="button" class="modal-close" data-close="modalOptions"><svg viewBox="0 0 24 24"><use href="#ic-x"/></svg></button>
         </div>
         <div class="modal-content">
           <label class="modal-field">
@@ -535,7 +593,7 @@
             <span>Habilitar modo promiscuo en la interfaz seleccionada</span>
           </label>
           <div class="modal-help-box">
-            <strong>Consejo Wireshark:</strong> En Windows, si no tienes Npcap instalado, Kuruta intentará automáticamente capturar paquetes IP mediante sockets raw Winsock (`SIO_RCVALL`) o puedes utilizar el botón <strong>"Tráfico de Prueba IDS"</strong> para realizar pruebas instantáneas con paquetes reales en memoria.
+            <strong>Consejo:</strong> En Windows, si no tienes Npcap instalado, Kuruta intentará capturar via sockets raw Winsock (<code>SIO_RCVALL</code>) o usa el botón <strong>"Tráfico de Prueba IDS"</strong> para pruebas instantáneas en memoria.
           </div>
         </div>
         <div class="modal-actions">
@@ -545,12 +603,63 @@
       </div>
     </div>
 
-    <!-- MODAL: SEGUIR STREAM TCP/UDP (WIRESHARK FOLLOW STREAM) -->
+    <!-- MODAL: EXPORTAR CAPTURA (MULTI-FORMATO) -->
+    <div id="modalExport" class="modal-overlay hidden">
+      <div class="modal-window">
+        <div class="modal-titlebar">
+          <span>Exportar Captura — Elige formato</span>
+          <button type="button" class="modal-close" data-close="modalExport"><svg viewBox="0 0 24 24"><use href="#ic-x"/></svg></button>
+        </div>
+        <div class="modal-content">
+          <p style="font-size:11.5px;color:var(--ink-secondary);margin:0;">Descarga el búfer de captura actual en el formato que necesites:</p>
+          <div class="export-grid">
+            <button type="button" class="export-card" id="exportPcap">
+              <svg viewBox="0 0 24 24"><use href="#ic-save"/></svg>
+              <strong>PCAP (.pcap)</strong>
+              <span>Formato nativo de Wireshark. Compatible con tcpdump, Zeek, Suricata y cualquier analizador de red.</span>
+            </button>
+            <button type="button" class="export-card" id="exportJson">
+              <svg viewBox="0 0 24 24"><use href="#ic-code"/></svg>
+              <strong>JSON (.json)</strong>
+              <span>Paquetes como objetos JSON estructurados, ideal para procesamiento con scripts y herramientas de análisis.</span>
+            </button>
+            <button type="button" class="export-card" id="exportCsv">
+              <svg viewBox="0 0 24 24"><use href="#ic-table"/></svg>
+              <strong>CSV (.csv)</strong>
+              <span>Tabla plana con columnas No., Tiempo, Src, Dst, Protocolo, Longitud e Información. Compatible con Excel.</span>
+            </button>
+            <button type="button" class="export-card" id="exportAnomaliesJson">
+              <svg viewBox="0 0 24 24"><use href="#ic-alert-tri"/></svg>
+              <strong>Anomalías IDS (.json)</strong>
+              <span>Solo las alertas IDS detectadas. Útil para informes de seguridad y correlación SIEM.</span>
+            </button>
+            <button type="button" class="export-card" id="exportNacJson">
+              <svg viewBox="0 0 24 24"><use href="#ic-globe"/></svg>
+              <strong>Inventario NAC (.json)</strong>
+              <span>Todos los dispositivos perfilados por el motor NAC con sus atributos de red y estado de confianza.</span>
+            </button>
+            <button type="button" class="export-card" id="exportIpsJson">
+              <svg viewBox="0 0 24 24"><use href="#ic-shield"/></svg>
+              <strong>Cuarentena IPS (.json)</strong>
+              <span>Historial completo de bloqueos, liberaciones y auditoría de acciones defensivas del IPS.</span>
+            </button>
+          </div>
+          <div class="modal-help-box" style="margin-top:4px;">
+            <strong>Consejo:</strong> Los archivos PCAP pueden abrirse directamente con Wireshark para análisis forense avanzado. Los formatos JSON son compatibles con cualquier SIEM (Elastic, Splunk, Graylog).
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn" data-close="modalExport">Cerrar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL: SEGUIR STREAM TCP/UDP -->
     <div id="modalStream" class="modal-overlay hidden">
       <div class="modal-window wide">
         <div class="modal-titlebar">
           <span id="modalStreamTitle">Seguimiento de Stream TCP</span>
-          <button type="button" class="modal-close" data-close="modalStream">✕</button>
+          <button type="button" class="modal-close" data-close="modalStream"><svg viewBox="0 0 24 24"><use href="#ic-x"/></svg></button>
         </div>
         <div class="modal-content">
           <pre id="streamContent" class="stream-viewer"></pre>
@@ -562,25 +671,25 @@
       </div>
     </div>
 
-    <!-- MODAL: ASISTENTE DE EXPRESIONES DE FILTRO -->
+    <!-- MODAL: ASISTENTE DE EXPRESIONES -->
     <div id="modalExpr" class="modal-overlay hidden">
       <div class="modal-window">
         <div class="modal-titlebar">
           <span>Asistente de Expresiones de Filtro</span>
-          <button type="button" class="modal-close" data-close="modalExpr">✕</button>
+          <button type="button" class="modal-close" data-close="modalExpr"><svg viewBox="0 0 24 24"><use href="#ic-x"/></svg></button>
         </div>
         <div class="modal-content">
-          <p>Selecciona una expresión para insertarla en el filtro de visualización:</p>
+          <p style="font-size:11.5px;color:var(--ink-secondary);margin:0;">Selecciona una expresión para insertarla en el filtro de visualización:</p>
           <div class="expr-list">
-            <button type="button" class="expr-item" data-expr="tcp"><strong>tcp</strong> - Solo tráfico Transmission Control Protocol</button>
-            <button type="button" class="expr-item" data-expr="udp"><strong>udp</strong> - Solo tráfico User Datagram Protocol</button>
-            <button type="button" class="expr-item" data-expr="dns"><strong>dns</strong> - Consultas y respuestas del sistema de nombres</button>
-            <button type="button" class="expr-item" data-expr="http or tls"><strong>http or tls</strong> - Tráfico web seguro e inseguro</button>
-            <button type="button" class="expr-item" data-expr="arp"><strong>arp</strong> - Peticiones y respuestas de resolución de direcciones</button>
-            <button type="button" class="expr-item" data-expr="icmp"><strong>icmp</strong> - Mensajes de control de red y pings</button>
-            <button type="button" class="expr-item" data-expr="flagged"><strong>flagged</strong> - Solo tramas señaladas con anomalías o ataques</button>
-            <button type="button" class="expr-item" data-expr="tcp.port == 443"><strong>tcp.port == 443</strong> - Tráfico en puerto HTTPS</button>
-            <button type="button" class="expr-item" data-expr="frame contains 'GET'"><strong>frame contains 'GET'</strong> - Tramas que contienen texto 'GET'</button>
+            <button type="button" class="expr-item" data-expr="tcp"><strong>tcp</strong> — Solo tráfico Transmission Control Protocol</button>
+            <button type="button" class="expr-item" data-expr="udp"><strong>udp</strong> — Solo tráfico User Datagram Protocol</button>
+            <button type="button" class="expr-item" data-expr="dns"><strong>dns</strong> — Consultas y respuestas del sistema de nombres</button>
+            <button type="button" class="expr-item" data-expr="http or tls"><strong>http or tls</strong> — Tráfico web seguro e inseguro</button>
+            <button type="button" class="expr-item" data-expr="arp"><strong>arp</strong> — Peticiones y respuestas de resolución de direcciones</button>
+            <button type="button" class="expr-item" data-expr="icmp"><strong>icmp</strong> — Mensajes de control de red y pings</button>
+            <button type="button" class="expr-item" data-expr="flagged"><strong>flagged</strong> — Solo tramas señaladas con anomalías o ataques</button>
+            <button type="button" class="expr-item" data-expr="tcp.port == 443"><strong>tcp.port == 443</strong> — Tráfico en puerto HTTPS</button>
+            <button type="button" class="expr-item" data-expr="frame contains 'GET'"><strong>frame contains 'GET'</strong> — Tramas que contienen texto 'GET'</button>
           </div>
         </div>
         <div class="modal-actions">
@@ -589,12 +698,12 @@
       </div>
     </div>
 
-    <!-- MODAL: AISLAR IP MANUALMENTE (CUARENTENA IPS) -->
+    <!-- MODAL: AISLAR IP MANUALMENTE -->
     <div id="modalIpsBlock" class="modal-overlay hidden">
       <div class="modal-window">
         <div class="modal-titlebar">
           <span>Aislar Dirección IP en Cuarentena IPS</span>
-          <button type="button" class="modal-close" data-close="modalIpsBlock">✕</button>
+          <button type="button" class="modal-close" data-close="modalIpsBlock"><svg viewBox="0 0 24 24"><use href="#ic-x"/></svg></button>
         </div>
         <div class="modal-content">
           <label class="modal-field">
@@ -620,7 +729,7 @@
             </select>
           </label>
           <div class="modal-help-box">
-            <strong>Acción Defensiva:</strong> Al aislar este host, sus tramas se descartarán de inmediato en el búfer de captura y, si el modo <em>Firewall Activo</em> está habilitado, se inyectarán reglas de bloqueo en el Firewall del SO.
+            <strong>Acción Defensiva:</strong> Al aislar este host, sus tramas se descartarán en el búfer y, si el modo <em>Firewall Activo</em> está habilitado, se inyectarán reglas de bloqueo en el Firewall del SO.
           </div>
         </div>
         <div class="modal-actions">
@@ -630,18 +739,18 @@
       </div>
     </div>
 
-    <!-- MODAL: LISTA BLANCA IPS (WHITELIST) -->
+    <!-- MODAL: WHITELIST IPS -->
     <div id="modalIpsWhitelist" class="modal-overlay hidden">
       <div class="modal-window">
         <div class="modal-titlebar">
           <span>Configurar Lista Blanca de Exclusiones IPS</span>
-          <button type="button" class="modal-close" data-close="modalIpsWhitelist">✕</button>
+          <button type="button" class="modal-close" data-close="modalIpsWhitelist"><svg viewBox="0 0 24 24"><use href="#ic-x"/></svg></button>
         </div>
         <div class="modal-content">
-          <p>Las siguientes direcciones IP jamás serán aisladas ni bloqueadas por las defensas del IPS (una IP por línea):</p>
+          <p style="font-size:11.5px;color:var(--ink-secondary);margin:0;">Las siguientes direcciones IP jamás serán aisladas ni bloqueadas por el IPS (una IP por línea):</p>
           <textarea id="modalIpsWhitelistArea" class="modal-textarea" rows="6" placeholder="127.0.0.1&#10;192.168.1.1&#10;1.1.1.1&#10;8.8.8.8"></textarea>
           <div class="modal-help-box">
-            <strong>Seguridad recomendada:</strong> Asegúrate de incluir la dirección IP del Gateway legítimo, servidores DNS y tu propia estación de administración.
+            <strong>Seguridad recomendada:</strong> Asegúrate de incluir la IP del Gateway legítimo, servidores DNS y tu estación de administración.
           </div>
         </div>
         <div class="modal-actions">
@@ -656,7 +765,7 @@
       <div class="modal-window">
         <div class="modal-titlebar">
           <span>Configuración de Gateway Legítimo (Defensa Anti-Rogue)</span>
-          <button type="button" class="modal-close" data-close="modalNacGateway">✕</button>
+          <button type="button" class="modal-close" data-close="modalNacGateway"><svg viewBox="0 0 24 24"><use href="#ic-x"/></svg></button>
         </div>
         <div class="modal-content">
           <label class="modal-field">
@@ -668,7 +777,7 @@
             <input id="modalNacGwMac" placeholder="Ej: 00:00:0C:44:55:66 (dejar vacío para autodetección)" />
           </label>
           <div class="modal-help-box">
-            <strong>Detección de MitM y ARP Poisoning:</strong> Si otro dispositivo en la red intenta anunciar esta IP de Gateway con una MAC distinta, Kuruta NAC generará de inmediato una alerta CRÍTICA de Rogue Gateway y el IPS aislará al atacante.
+            <strong>Detección de MitM y ARP Poisoning:</strong> Si otro dispositivo intenta anunciar esta IP con una MAC distinta, Kuruta NAC generará una alerta CRÍTICA de Rogue Gateway y el IPS aislará al atacante.
           </div>
         </div>
         <div class="modal-actions">
@@ -683,7 +792,7 @@
       <div class="modal-window">
         <div class="modal-titlebar">
           <span>Asignar Nombre / Alias al Dispositivo</span>
-          <button type="button" class="modal-close" data-close="modalNacRename">✕</button>
+          <button type="button" class="modal-close" data-close="modalNacRename"><svg viewBox="0 0 24 24"><use href="#ic-x"/></svg></button>
         </div>
         <div class="modal-content">
           <label class="modal-field">
@@ -702,9 +811,9 @@
       </div>
     </div>
 
-    <!-- 11. STATUS BAR INFERIOR DE WIRESHARK -->
+    <!-- STATUS BAR -->
     <footer class="ws-statusbar">
-      <div class="status-cell" id="sbStatusText">● Detenido</div>
+      <div class="status-cell" id="sbStatusText">&#9679; Detenido</div>
       <div class="status-cell" id="sbPacketsText">Paquetes: 0</div>
       <div class="status-cell" id="sbDisplayedText">Mostrados: 0</div>
       <div class="status-cell" id="sbMarkedText">Anomalías: 0</div>
@@ -712,7 +821,7 @@
       <div class="status-cell" id="sbNacText">NAC: 0 dispositivos</div>
       <div class="status-cell" id="sbRateText">0.0 pps · 0 B</div>
       <div class="status-cell grow" id="sbErrorText"></div>
-      <div class="status-cell profile-cell">Perfil: Blanco y Negro (Wireshark IDS / IPS / NAC)</div>
+      <div class="status-cell profile-cell">Kuruta IDS · IPS · NAC v0.3</div>
     </footer>
 
     <script src="/static/app.js"></script>

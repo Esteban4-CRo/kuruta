@@ -324,9 +324,42 @@ async function handlePcapFile(file) {
     headers: { "content-type": "application/octet-stream" },
     body: buffer,
   });
-  $("sbErrorText").textContent = `✓ Importadas ${res.imported} tramas desde ${file.name}.`;
+  $("sbErrorText").textContent = `Importadas ${res.imported} tramas desde ${file.name}.`;
   await applyFilter(state.filter);
 }
+
+// EXPORT — trigger real file download via URL
+function downloadFromUrl(url, filename) {
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  $("sbErrorText").textContent = `Descargando ${filename}...`;
+  setTimeout(() => { $("sbErrorText").textContent = ""; }, 3000);
+}
+
+function openExportModal() {
+  $("modalExport").classList.remove("hidden");
+}
+
+// FULLSCREEN TOGGLE
+function toggleFullscreen() {
+  if (!document.fullscreenElement) {
+    document.documentElement.requestFullscreen().catch(() => {});
+  } else {
+    document.exitFullscreen().catch(() => {});
+  }
+}
+
+document.addEventListener("fullscreenchange", () => {
+  const isFs = !!document.fullscreenElement;
+  const icon = $("fullscreenIcon");
+  const label = $("fullscreenLabel");
+  if (icon) icon.setAttribute("href", isFs ? "#ic-minimize" : "#ic-maximize");
+  if (label) label.textContent = isFs ? "Salir" : "Ampliar";
+});
 
 // WEBSOCKET LIVE
 function connectLive() {
@@ -727,15 +760,15 @@ function renderNacDevices() {
       <td><code>${escapeHtml(ipStr)}</code></td>
       <td>
         <span>${escapeHtml(d.hostname || "—")}</span>
-        <button class="action-btn-mini btn-nac-rename" data-mac="${escapeHtml(d.mac)}" data-name="${escapeHtml(d.hostname || "")}" title="Asignar alias personalizado">✏️</button>
+        <button class="action-btn-mini btn-nac-rename" data-mac="${escapeHtml(d.mac)}" data-name="${escapeHtml(d.hostname || "")}" title="Asignar alias personalizado">[Renombrar]</button>
       </td>
       <td><span class="os-chip">${escapeHtml(d.os_hint || "Desconocido")}</span></td>
       <td>${traffic}</td>
       <td><span class="status-badge ${statusBadgeClass}">${escapeHtml(d.status.toUpperCase())}</span></td>
       <td>
-        ${d.status !== "authorized" ? `<button class="action-btn-mini success btn-nac-auth" data-mac="${escapeHtml(d.mac)}">✓ Confiar</button>` : ""}
-        ${d.status !== "quarantined" ? `<button class="action-btn-mini danger btn-nac-quar" data-mac="${escapeHtml(d.mac)}">⛔ Aislar</button>` : ""}
-        ${d.status !== "rogue" ? `<button class="action-btn-mini danger btn-nac-rogue" data-mac="${escapeHtml(d.mac)}">⚠️ Rogue</button>` : ""}
+        ${d.status !== "authorized" ? `<button class="action-btn-mini success btn-nac-auth" data-mac="${escapeHtml(d.mac)}">Confiar</button>` : ""}
+        ${d.status !== "quarantined" ? `<button class="action-btn-mini danger btn-nac-quar" data-mac="${escapeHtml(d.mac)}">Aislar</button>` : ""}
+        ${d.status !== "rogue" ? `<button class="action-btn-mini danger btn-nac-rogue" data-mac="${escapeHtml(d.mac)}">Rogue</button>` : ""}
       </td>
     `;
     body.appendChild(tr);
@@ -829,6 +862,36 @@ function setupEvents() {
     if (e.target.files.length > 0) {
       handlePcapFile(e.target.files[0]).catch(showError);
     }
+  });
+
+  // Export modal — toolbar button and menu entry
+  $("tbSavePcap").addEventListener("click", openExportModal);
+  $("menuExportAll").addEventListener("click", openExportModal);
+
+  // Export modal format buttons
+  $("exportPcap").addEventListener("click", () => {
+    $("modalExport").classList.add("hidden");
+    downloadFromUrl("/api/v1/sniffer/export.pcap", "kuruta-capture.pcap");
+  });
+  $("exportJson").addEventListener("click", () => {
+    $("modalExport").classList.add("hidden");
+    downloadFromUrl("/api/v1/sniffer/export.json", "kuruta-capture.json");
+  });
+  $("exportCsv").addEventListener("click", () => {
+    $("modalExport").classList.add("hidden");
+    downloadFromUrl("/api/v1/sniffer/export.csv", "kuruta-capture.csv");
+  });
+  $("exportAnomaliesJson").addEventListener("click", () => {
+    $("modalExport").classList.add("hidden");
+    downloadFromUrl("/api/v1/sniffer/export-anomalies.json", "kuruta-anomalies.json");
+  });
+  $("exportNacJson").addEventListener("click", () => {
+    $("modalExport").classList.add("hidden");
+    downloadFromUrl("/api/v1/nac/export.json", "kuruta-nac-inventory.json");
+  });
+  $("exportIpsJson").addEventListener("click", () => {
+    $("modalExport").classList.add("hidden");
+    downloadFromUrl("/api/v1/ips/export.json", "kuruta-ips-report.json");
   });
 
   // Drag and Drop PCAP file
@@ -1104,10 +1167,18 @@ function setupEvents() {
   $("menuNacAuthorizeAll").addEventListener("click", () => $("btnNacAuthorizeAll").click());
   $("menuViewNac").addEventListener("click", () => showView("nac"));
 
+  // Fullscreen
+  $("btnFullscreen").addEventListener("click", toggleFullscreen);
+  $("menuFullscreen").addEventListener("click", toggleFullscreen);
+
   // Keyboard Navigation (Up / Down arrows to traverse packets)
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") {
       for (const m of document.querySelectorAll(".modal-overlay")) m.classList.add("hidden");
+    }
+    if (e.key === "F11") {
+      e.preventDefault();
+      toggleFullscreen();
     }
     if (state.view === "capture" && (e.key === "ArrowDown" || e.key === "ArrowUp")) {
       if (document.activeElement?.tagName === "INPUT" || document.activeElement?.tagName === "SELECT") return;
