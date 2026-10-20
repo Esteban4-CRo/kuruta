@@ -1,6 +1,7 @@
 """Unit tests for Network Access Control (NAC) and Intrusion Prevention System (IPS)."""
 
 import time
+from pathlib import Path
 from fastapi.testclient import TestClient
 from scapy.layers.inet import IP, TCP
 from scapy.layers.l2 import ARP, Ether
@@ -77,36 +78,35 @@ def test_ips_engine_quarantine_and_whitelist() -> None:
     assert not ips.is_blocked("192.168.1.88")
 
 
-def test_ips_and_nac_api_endpoints() -> None:
+def test_ips_and_nac_api_endpoints(tmp_path: Path) -> None:
     capture = CaptureEngine()
-    app = create_app(capture_engine=capture)
-    client = TestClient(app)
+    app = create_app(database_path=tmp_path / "ips_nac.db", capture_engine=capture)
+    with TestClient(app) as client:
+        # 1. Check IPS Status
+        res = client.get("/api/v1/ips/status")
+        assert res.status_code == 200
+        assert "mode" in res.json()
 
-    # 1. Check IPS Status
-    res = client.get("/api/v1/ips/status")
-    assert res.status_code == 200
-    assert "mode" in res.json()
+        # 2. Block IP via API
+        res = client.post("/api/v1/ips/block", json={"ip": "10.0.0.99", "reason": "Test Block"})
+        assert res.status_code == 200
+        assert res.json()["quarantined"] is True
 
-    # 2. Block IP via API
-    res = client.post("/api/v1/ips/block", json={"ip": "10.0.0.99", "reason": "Test Block"})
-    assert res.status_code == 200
-    assert res.json()["quarantined"] is True
+        # 3. Check Quarantine Table
+        res = client.get("/api/v1/ips/quarantine")
+        assert res.status_code == 200
+        quar = res.json()["quarantine"]
+        assert any(q["ip"] == "10.0.0.99" for q in quar)
 
-    # 3. Check Quarantine Table
-    res = client.get("/api/v1/ips/quarantine")
-    assert res.status_code == 200
-    quar = res.json()["quarantine"]
-    assert any(q["ip"] == "10.0.0.99" for q in quar)
+        # 4. Unblock IP via API
+        res = client.post("/api/v1/ips/unblock", json={"ip": "10.0.0.99"})
+        assert res.status_code == 200
+        assert res.json()["unblocked"] is True
 
-    # 4. Unblock IP via API
-    res = client.post("/api/v1/ips/unblock", json={"ip": "10.0.0.99"})
-    assert res.status_code == 200
-    assert res.json()["unblocked"] is True
-
-    # 5. Simulate Traffic & Check NAC Discovery
-    client.post("/api/v1/sniffer/simulate")
-    res = client.get("/api/v1/nac/devices")
-    assert res.status_code == 200
-    data = res.json()
-    assert len(data["devices"]) > 0
-    assert data["summary"]["total_devices"] > 0
+        # 5. Simulate Traffic & Check NAC Discovery
+        client.post("/api/v1/sniffer/simulate")
+        res = client.get("/api/v1/nac/devices")
+        assert res.status_code == 200
+        data = res.json()
+        assert len(data["devices"]) > 0
+        assert data["summary"]["total_devices"] > 0
